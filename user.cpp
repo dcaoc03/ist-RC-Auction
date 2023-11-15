@@ -63,9 +63,10 @@ int main(int argc, char** argv) {
     if (argc > 1)
         process_arguments(argc, argv);
 
-    char command_buffer[BUFFER_SIZE], command_word[10];
-    fgets(command_buffer, BUFFER_SIZE, 0);
-    sscanf(command_buffer, "%s", &command_word);
+    char command_buffer[BUFFER_SIZE], command_word[20];
+    if ((fgets(command_buffer, BUFFER_SIZE, 0) == NULL))
+        return -1;
+    sscanf(command_buffer, "%s", command_word);
 
     if (!strcmp(command_word, "login"))
         login(command_buffer);
@@ -81,7 +82,7 @@ void login(char* arguments) {
 }
 
 int UDPclient() {
-    int fd, errcode;
+    int fd;
     ssize_t n;
     socklen_t addrlen;
     struct addrinfo hints, *res;
@@ -105,8 +106,11 @@ int UDPclient() {
     if ((n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1)
         return -1;
 
-    write(1, buffer, n);
+    if ((write(1, buffer, n)) == -1)
+        return -1;
 
     freeaddrinfo(res);
     close(fd);
+
+    return 0;
 }
