@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
     char buffer[BUFFER_SIZE];
     fd_set fdset;
     pid_t child_pid;
+    char udp_message[]="Message received\n";
 
     memset(&hints, 0, sizeof hints );
     hints.ai_family=AF_INET;
@@ -107,7 +108,7 @@ int main(int argc, char** argv) {
             printf("\nMessage from UDP client: "); 
             n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen); 
             puts(buffer); 
-            n=sendto(fd_udp, buffer, n, 0, (struct sockaddr*) &addr, addrlen);
+            n=sendto(fd_udp, udp_message, sizeof(udp_message), 0, (struct sockaddr*) &addr, addrlen);
             if(n==-1)
                 exit(1);
         } 

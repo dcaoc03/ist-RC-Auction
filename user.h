@@ -17,7 +17,7 @@ void show_asset();
 void bid();
 void show_record();
 
-int UDPclient();
+int UDPclient(char message[], unsigned int message_size);
 int TCPclient();
 
 #endif

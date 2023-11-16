@@ -63,25 +63,38 @@ int main(int argc, char** argv) {
     if (argc > 1)
         process_arguments(argc, argv);
 
-    char command_buffer[BUFFER_SIZE], command_word[20];
-    if ((fgets(command_buffer, BUFFER_SIZE, 0) == NULL))
-        return -1;
-    sscanf(command_buffer, "%s", command_word);
+    while (1) {
+        char command_buffer[BUFFER_SIZE], command_word[20];
+        if ((fgets(command_buffer, BUFFER_SIZE, stdin) == NULL))
+            return -1;
+        sscanf(command_buffer, "%s", command_word);
 
-    if (!strcmp(command_word, "login"))
-        login(command_buffer);
-    
-    printf("%s\n", as_ip_address.c_str());
+        if (!strcmp(command_word, "login"))
+            login(command_buffer);
+        
+    }
     return 0;
 }
 
 /*   UDP AND TCP FUNCTIONS   */
 
-void login(char* arguments) {
+void login(char arguments[]) {
+    char UID[10], password[BUFFER_SIZE];
+    char message[BUFFER_SIZE];
 
+    sscanf(arguments, "%*s %s %s", UID, password);
+
+    strcpy(message, "LIN");
+    strcat(message, " ");
+    strcat(message, UID);
+    strcat(message, " ");
+    strcat(message, password);
+
+    if (UDPclient(message, sizeof(message)) < 0)
+        printf("error\n");                  // CHANGE ERROR HANDLING!!!!
 }
 
-int UDPclient() {
+int UDPclient(char message[], unsigned int message_size) {
     int fd;
     ssize_t n;
     socklen_t addrlen;
@@ -99,13 +112,12 @@ int UDPclient() {
     if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints, &res)) != 0)       // CHECK THE NAME/IP ADDRESS!!!!
         return -1;
     
-    if ((n = sendto(fd, "Hello!\n", 7, 0, res->ai_addr, res->ai_addrlen)) == -1)        // CHANGE MESSAGE!!!!!
+    if ((n = sendto(fd, message, message_size, 0, res->ai_addr, res->ai_addrlen)) == -1)        // CHANGE MESSAGE!!!!!
         return -1;;
     
     addrlen = sizeof(addr);
     if ((n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1)
         return -1;
-
     if ((write(1, buffer, n)) == -1)
         return -1;
 
