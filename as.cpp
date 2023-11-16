@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include <string>
 
@@ -39,10 +41,9 @@ int main(int argc, char** argv) {
     socklen_t addrlen;
     struct addrinfo hints, *res;
     struct sockaddr_in addr;
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE], command_word[BUFFER_SIZE];
     fd_set fdset;
     pid_t child_pid;
-    char udp_message[]="Message received\n";
 
     memset(&hints, 0, sizeof hints );
     hints.ai_family=AF_INET;
@@ -94,8 +95,17 @@ int main(int argc, char** argv) {
                 printf("Message From TCP client: "); 
                 if (read(newfd, buffer, sizeof(buffer)) < 0)
                     exit(1); 
-                puts(buffer); 
-                if (write(newfd, (const char*)buffer, sizeof(buffer)) < 0)
+                puts(buffer);
+
+                /* REQUEST PROCESSING */
+                string response;
+                sscanf(buffer, "%s", command_word);
+
+                if (!strcmp(command_word, "LIN"))
+                    response = "RLI " + login(buffer) + "\n";
+                
+                const char* response2 = response.c_str();
+                if (write(newfd, (const char*)response2, sizeof(response2)) < 0)
                     exit(1); 
                 close(newfd); 
                 exit(0); 
@@ -108,11 +118,88 @@ int main(int argc, char** argv) {
             printf("\nMessage from UDP client: "); 
             n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen); 
             puts(buffer); 
-            n=sendto(fd_udp, udp_message, sizeof(udp_message), 0, (struct sockaddr*) &addr, addrlen);
+
+            /* REQUEST PROCESSING */
+            string response;
+            sscanf(buffer, "%s", command_word);
+
+            if (!strcmp(command_word, "LIN"))
+                response = "RLI " + login(buffer) + "\n";
+            
+            const char* response2 = response.c_str();
+
+            n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr, addrlen);
             if(n==-1)
                 exit(1);
         } 
     }
 
     return 0;
+}
+
+string login(char arguments[]) {
+    char UID[10], password[BUFFER_SIZE], dir_name[BUFFER_SIZE];
+    char user_file_name[BUFFER_SIZE], password_file_name[BUFFER_SIZE];
+
+    sscanf(arguments, "%*s %s %s", UID, password);
+
+    strcpy(dir_name, "./USERS/");
+    strcat(dir_name, UID);
+
+    strcpy(user_file_name, dir_name);
+    strcat(user_file_name, "/");
+    strcat(user_file_name, UID);
+    strcat(user_file_name, "_login.txt");
+
+    strcpy(password_file_name, dir_name);
+    strcat(password_file_name, "/");
+    strcat(password_file_name, UID);
+    strcat(password_file_name, "_password.txt");
+
+    if ((opendir(dir_name)) == NULL) {
+        char hosted[BUFFER_SIZE], bidded[BUFFER_SIZE];
+        strcpy(hosted, dir_name);
+        strcat(hosted, "/HOSTED");
+        strcpy(bidded, dir_name);
+        strcat(bidded, "/BIDDED");
+
+        if(mkdir(dir_name, S_IRWXU) == -1)
+            return "";                             // CHANGE ERROR
+        
+        if(mkdir(hosted, S_IRWXU) == -1)
+            return "";                             // CHANGE ERROR
+
+        if(mkdir(bidded, S_IRWXU) == -1)
+            return "";                             // CHANGE ERROR
+
+        FILE* fd_user = fopen(user_file_name, "w");
+        FILE* fd_pass = fopen(password_file_name, "w");
+
+        fprintf(fd_pass, "%s", password);
+
+        fclose(fd_user);
+        fclose(fd_pass);
+
+        return "REG";
+    }
+
+    else {
+        FILE* fd_pass = fopen(password_file_name, "r");
+
+        char password_in_file[BUFFER_SIZE];
+        memset(password_in_file, 0, sizeof(password_in_file));
+
+        if (fread(password_in_file, sizeof(char), strlen(password)+1, fd_pass) < 0)
+            return "";                             // CHANGE ERROR
+        fclose(fd_pass);
+
+        if (!strcmp(password_in_file, password)) {
+            FILE* fd_user = fopen(user_file_name, "w");
+            fclose(fd_user);
+            return "OK";
+        }
+        else {
+            return "NOK";
+        }
+    }
 }
