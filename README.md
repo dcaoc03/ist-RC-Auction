@@ -4,7 +4,6 @@ TODO:
 - Auction Server (AS)
   - Responses
 - User Application
-  - unregister
   - exit
   - open
   - close
@@ -22,3 +21,4 @@ DONE:
   - Launch
   - login
   - logout
+  - unregister
