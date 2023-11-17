@@ -2,11 +2,8 @@
 Project from the Computer Networks course at Instituto Superior Técnico
 TODO:
 - Auction Server (AS)
-  - Launch
+  - Responses
 - User Application
-  - Launch
-  - login
-  - logout
   - unregister
   - exit
   - open
@@ -17,3 +14,11 @@ TODO:
   - show_asset/sa
   - bid/b
   - show_record/sr
+
+DONE:
+- Auction Server (AS)
+  - Launch
+- User Application
+  - Launch
+  - login
+  - logout
