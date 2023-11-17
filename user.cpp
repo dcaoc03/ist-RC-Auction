@@ -16,6 +16,9 @@ using namespace std;
 string as_ip_address;
 string as_port;
 
+string user_ID="";                     // When user_ID= "", the user isn't logged in
+string user_password="";
+
 /*  MAIN FUNCTIONS   */
 
 string get_as_ip_address() {            // gets the machine's IP address and uses it as the default IP address for the AS
@@ -69,8 +72,18 @@ int main(int argc, char** argv) {
             return -1;
         sscanf(command_buffer, "%s", command_word);
 
-        if (!strcmp(command_word, "login"))
-            login(command_buffer);
+        if (user_ID == "") {
+            if (!strcmp(command_word, "login"))
+                login(command_buffer);
+            else 
+                printf("Please login first\n");
+        }
+        else {
+            if (!strcmp(command_word, "login"))
+                printf("User already logged in\n");
+            if (!strcmp(command_word, "logout"))
+                logout();
+        }
         
     }
     return 0;
@@ -90,11 +103,34 @@ void login(char arguments[]) {
     strcat(message, " ");
     strcat(message, password);
 
-    if (UDPclient(message, sizeof(message)) < 0)
+    int request_result = UDPclient(message, sizeof(message));
+    if (request_result < 0)
         printf("error\n");                  // CHANGE ERROR HANDLING!!!!
+    else if (request_result == 1) {            // If login is successful
+        user_ID = UID;                         // sets the user UID
+        user_password = password;              // sets the user password
+    }
 }
 
-int UDPclient(char message[], unsigned int message_size) {
+void logout() {
+    char message[BUFFER_SIZE];
+
+    strcpy(message, "LOU");
+    strcat(message, " ");
+    strcat(message, user_ID.c_str());
+    strcat(message, " ");
+    strcat(message, user_password.c_str());
+
+    int request_result = UDPclient(message, sizeof(message));
+    if (request_result < 0)
+        printf("error\n");                  // CHANGE ERROR HANDLING!!!!
+    else if (request_result == 1) {             // If logout is successful
+        user_ID = "";                           // reset the user UID
+        user_password = "";                     // reset the user password
+    }
+}
+
+int UDPclient(char message[], unsigned int message_size) {      // Returns -1 if error, 0 if successful but denied, 1 if successful
     int fd;
     ssize_t n;
     socklen_t addrlen;
@@ -124,5 +160,10 @@ int UDPclient(char message[], unsigned int message_size) {
     freeaddrinfo(res);
     close(fd);
 
-    return 0;
+    char code[10];
+    sscanf(buffer, "%*s %s", code);
+    if (!strcmp(code, "NOK"))
+        return 0;
+
+    return 1;
 }

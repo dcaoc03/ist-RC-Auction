@@ -5,5 +5,6 @@
 #define BUFFER_SIZE 128
 
 std::string login(char* arguments);
+std::string logout(char* arguments);
 
 #endif
