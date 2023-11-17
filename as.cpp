@@ -126,8 +126,11 @@ int main(int argc, char** argv) {
             if (!strcmp(command_word, "LIN"))
                 response = "RLI " + login(buffer) + "\n";
 
-            if (!strcmp(command_word, "LOU"))
+            else if (!strcmp(command_word, "LOU"))
                 response = "RLO " + logout(buffer) + "\n";
+            
+            else if (!strcmp(command_word, "UNR"))
+                response = "RUR " + unregister(buffer) + "\n"; 
             
             const char* response2 = response.c_str();
 
@@ -144,63 +147,68 @@ int main(int argc, char** argv) {
 
 string login(char arguments[]) {
     char UID[10], password[BUFFER_SIZE];
-    char dir_name[BUFFER_SIZE], user_file_name[BUFFER_SIZE], password_file_name[BUFFER_SIZE];
 
     sscanf(arguments, "%*s %s %s", UID, password);
 
+    char dir_name[BUFFER_SIZE];
     strcpy(dir_name, "./USERS/");
     strcat(dir_name, UID);
 
-    strcpy(user_file_name, dir_name);
-    strcat(user_file_name, "/");
-    strcat(user_file_name, UID);
-    strcat(user_file_name, "_login.txt");
-
-    strcpy(password_file_name, dir_name);
-    strcat(password_file_name, "/");
-    strcat(password_file_name, UID);
-    strcat(password_file_name, "_password.txt");
+    string dir_name_str(dir_name);
+    string user_file_name = dir_name_str + "/" + UID + "_login.txt";
+    string password_file_name = dir_name_str + "/" + UID + "_password.txt";
 
     DIR* dir = opendir(dir_name);
     if (dir) {
         closedir(dir);
-        FILE* fd_pass = fopen(password_file_name, "r");
+        int file_exists = access(password_file_name.c_str(), F_OK);
+        if (file_exists == 0) {
+            FILE* fd_pass = fopen(password_file_name.c_str(), "r");
 
-        char password_in_file[BUFFER_SIZE];
-        memset(password_in_file, 0, sizeof(password_in_file));
+            char password_in_file[BUFFER_SIZE];
+            memset(password_in_file, 0, sizeof(password_in_file));
 
-        if (fread(password_in_file, sizeof(char), BUFFER_SIZE, fd_pass) < 0)
-            return "";                             // CHANGE ERROR
-        fclose(fd_pass);
+            if (fread(password_in_file, sizeof(char), BUFFER_SIZE, fd_pass) < 0)
+                return "";                             // CHANGE ERROR
+            fclose(fd_pass);
 
-        if (!strcmp(password_in_file, password)) {
-            FILE* fd_user = fopen(user_file_name, "w");
+            if (!strcmp(password_in_file, password)) {
+                FILE* fd_user = fopen(user_file_name.c_str(), "w");
+                fclose(fd_user);
+                return "OK";
+            }
+            else {
+                return "NOK";
+            }
+        } else if (file_exists == -1) {
+            FILE* fd_user = fopen(user_file_name.c_str(), "w");
+            FILE* fd_pass = fopen(password_file_name.c_str(), "w");
+
+            fprintf(fd_pass, "%s", password);
+
             fclose(fd_user);
+            fclose(fd_pass);
+
             return "OK";
         }
-        else {
-            return "NOK";
-        }
+
     }
 
     else {
-        char hosted[BUFFER_SIZE], bidded[BUFFER_SIZE];
-        strcpy(hosted, dir_name);
-        strcat(hosted, "/HOSTED");
-        strcpy(bidded, dir_name);
-        strcat(bidded, "/BIDDED");
+        string hosted = dir_name_str + "/HOSTED";
+        string bidded = dir_name_str + "/BIDDED";
 
         if(mkdir(dir_name, S_IRWXU) == -1)
             return "";                             // CHANGE ERROR
         
-        if(mkdir(hosted, S_IRWXU) == -1)
+        if(mkdir(hosted.c_str(), S_IRWXU) == -1)
             return "";                             // CHANGE ERROR
 
-        if(mkdir(bidded, S_IRWXU) == -1)
+        if(mkdir(bidded.c_str(), S_IRWXU) == -1)
             return "";                             // CHANGE ERROR
 
-        FILE* fd_user = fopen(user_file_name, "w");
-        FILE* fd_pass = fopen(password_file_name, "w");
+        FILE* fd_user = fopen(user_file_name.c_str(), "w");
+        FILE* fd_pass = fopen(password_file_name.c_str(), "w");
 
         fprintf(fd_pass, "%s", password);
 
@@ -225,6 +233,30 @@ string logout(char arguments[]) {
             return "NOK";
         else {
             if (remove(login_file_name.c_str()) != 0)
+                return "";                             // CHANGE ERROR
+            else
+                return "OK";
+        }
+    }
+    else
+        return "UNR";
+}
+
+string unregister(char arguments[]) {
+    char UID[10], password[BUFFER_SIZE];
+    sscanf(arguments, "%*s %s %s", UID, password);
+    string str_UID(UID);
+
+    string dir_name = "./USERS/" + str_UID;
+    DIR* dir = opendir(dir_name.c_str());
+    if (dir) {
+        closedir(dir);
+        string login_file_name = dir_name + "/" + str_UID + "_login.txt";
+        string password_file_name = dir_name + "/" + str_UID + "_password.txt";
+        if (access(login_file_name.c_str(), F_OK) == -1)
+            return "NOK";
+        else {
+            if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0)
                 return "";                             // CHANGE ERROR
             else
                 return "OK";

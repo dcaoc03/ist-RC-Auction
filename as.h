@@ -6,5 +6,6 @@
 
 std::string login(char* arguments);
 std::string logout(char* arguments);
+std::string unregister(char* arguments);
 
 #endif

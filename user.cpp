@@ -14,7 +14,7 @@
 using namespace std;
 
 string as_ip_address;
-string as_port;
+string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
 
 string user_ID="";                     // When user_ID= "", the user isn't logged in
 string user_password="";
@@ -83,13 +83,15 @@ int main(int argc, char** argv) {
                 printf("User already logged in\n");
             if (!strcmp(command_word, "logout"))
                 logout();
+            if (!strcmp(command_word, "unregister"))
+                unregister();
         }
         
     }
     return 0;
 }
 
-/*   UDP AND TCP FUNCTIONS   */
+/*    COMMAND PROCESSING   */
 
 void login(char arguments[]) {
     char UID[10], password[BUFFER_SIZE];
@@ -102,6 +104,7 @@ void login(char arguments[]) {
     strcat(message, UID);
     strcat(message, " ");
     strcat(message, password);
+    strcat(message, "\n");
 
     int request_result = UDPclient(message, sizeof(message));
     if (request_result < 0)
@@ -120,6 +123,7 @@ void logout() {
     strcat(message, user_ID.c_str());
     strcat(message, " ");
     strcat(message, user_password.c_str());
+    strcat(message, "\n");
 
     int request_result = UDPclient(message, sizeof(message));
     if (request_result < 0)
@@ -129,6 +133,23 @@ void logout() {
         user_password = "";                     // reset the user password
     }
 }
+
+void unregister() {
+    string message = "UNR " + user_ID + " " + user_password + "\n";
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    int request_result = UDPclient(message2, sizeof(message));
+    if (request_result < 0)
+        printf("error\n");                  // CHANGE ERROR HANDLING!!!!
+    else if (request_result == 1) {             // If logout is successful
+        user_ID = "";                           // reset the user UID
+        user_password = "";                     // reset the user password
+    }
+}
+
+
+/* SOCKET WRITING */
 
 int UDPclient(char message[], unsigned int message_size) {      // Returns -1 if error, 0 if successful but denied, 1 if successful
     int fd;
