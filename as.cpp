@@ -10,6 +10,7 @@
 #include <dirent.h>
 
 #include <string>
+#include <cctype>
 
 #include "as.h"
 
@@ -115,22 +116,24 @@ int main(int argc, char** argv) {
         if (FD_ISSET(fd_udp, &fdset)) { 
             addrlen = sizeof(addr);
             bzero(buffer, sizeof(buffer)); 
-            printf("\nMessage from UDP client: "); 
-            n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen); 
-            puts(buffer); 
+            n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen);
 
             /* REQUEST PROCESSING */
             string response;
             sscanf(buffer, "%s", command_word);
 
-            if (!strcmp(command_word, "LIN"))
-                response = "RLI " + login(buffer) + "\n";
+            if (!strcmp(command_word, "LIN")) {
+                string status = login(buffer);
+                response = "RLI " + status + "\n";
+            }
 
-            else if (!strcmp(command_word, "LOU"))
+            else if (!strcmp(command_word, "LOU")) {
                 response = "RLO " + logout(buffer) + "\n";
+            }
             
-            else if (!strcmp(command_word, "UNR"))
-                response = "RUR " + unregister(buffer) + "\n"; 
+            else if (!strcmp(command_word, "UNR")) {
+                response = "RUR " + unregister(buffer) + "\n";
+            }
             
             const char* response2 = response.c_str();
 
@@ -149,6 +152,19 @@ string login(char arguments[]) {
     char UID[10], password[BUFFER_SIZE];
 
     sscanf(arguments, "%*s %s %s", UID, password);
+
+    if ((strlen(UID) != 6) || (strlen(password) > 8)) {
+        if (verbose)
+            printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
+        return "NOK";
+    }
+    for (int i=0; i < 6; i++) {
+        if (!isdigit(UID[i])) {
+            if (verbose)
+                printf("%s: new login; unsuccessful login, UID must be six digits\n", UID);
+            return "NOK";
+        }
+    }
 
     char dir_name[BUFFER_SIZE];
     strcpy(dir_name, "./USERS/");
@@ -175,9 +191,13 @@ string login(char arguments[]) {
             if (!strcmp(password_in_file, password)) {
                 FILE* fd_user = fopen(user_file_name.c_str(), "w");
                 fclose(fd_user);
+                if (verbose)
+                    printf("%s: new login; successful login\n", UID);
                 return "OK";
             }
             else {
+                if (verbose)
+                    printf("%s: new login; unsuccessful login\n", UID);
                 return "NOK";
             }
         } else if (file_exists == -1) {
@@ -189,6 +209,8 @@ string login(char arguments[]) {
             fclose(fd_user);
             fclose(fd_pass);
 
+            if (verbose)
+                printf("%s: new login; successful login\n", UID);
             return "OK";
         }
 
@@ -215,6 +237,8 @@ string login(char arguments[]) {
         fclose(fd_user);
         fclose(fd_pass);
 
+        if (verbose)
+            printf("%s: new registration; successfully registered\n", UID);
         return "REG";
     }
 }
@@ -229,17 +253,29 @@ string logout(char arguments[]) {
     if (dir) {
         closedir(dir);
         string login_file_name = dir_name + "/" + str_UID + "_login.txt";
-        if (access(login_file_name.c_str(), F_OK) == -1)
+        if (access(login_file_name.c_str(), F_OK) == -1) {
+            if (verbose)
+                printf("%s: logout; user isn't logged in\n", UID);
             return "NOK";
+        }
         else {
-            if (remove(login_file_name.c_str()) != 0)
-                return "";                             // CHANGE ERROR
-            else
+            if (remove(login_file_name.c_str()) != 0) {
+                if (verbose)
+                    printf("%s: logout; failed to remove user\n", UID);
+                return "NOK";
+            }
+            else {
+                if (verbose)
+                    printf("%s: logout; logout successful\n", UID);
                 return "OK";
+            }
         }
     }
-    else
+    else {
+        if (verbose)
+            printf("%s: logout; failed to locate user in the database\n", UID);
         return "UNR";
+    }
 }
 
 string unregister(char arguments[]) {
@@ -253,15 +289,27 @@ string unregister(char arguments[]) {
         closedir(dir);
         string login_file_name = dir_name + "/" + str_UID + "_login.txt";
         string password_file_name = dir_name + "/" + str_UID + "_password.txt";
-        if (access(login_file_name.c_str(), F_OK) == -1)
+        if (access(login_file_name.c_str(), F_OK) == -1) {
+            if (verbose)
+                printf("%s: unregister; user isn't logged in\n", UID);
             return "NOK";
+        }
         else {
-            if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0)
-                return "";                             // CHANGE ERROR
-            else
+            if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0) {
+                if (verbose)
+                    printf("%s: unregister; failed to unregister\n", UID);
+                return "NOK";
+            }
+            else  {
+                if (verbose)
+                    printf("%s: unregister; successsful unregistration\n", UID);
                 return "OK";
+            }
         }
     }
-    else
+    else  {
+        if (verbose)
+            printf("%s: logout; failed to locate user in the database\n", UID);
         return "UNR";
+    }
 }

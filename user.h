@@ -7,7 +7,7 @@
 void login(char* arguments);
 void logout();
 void unregister();
-void exit();
+void exit(int* ending);
 void open();
 void close();
 void myauctions();
@@ -17,7 +17,7 @@ void show_asset();
 void bid();
 void show_record();
 
-int UDPclient(char message[], unsigned int message_size);
+std::string UDPclient(char message[], unsigned int message_size);
 int TCPclient();
 
 #endif
