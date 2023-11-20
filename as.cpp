@@ -8,6 +8,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <time.h>
+#include <dirent.h>
 
 #include <string>
 #include <cctype>
@@ -19,6 +21,8 @@ using namespace std;
 string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
 bool verbose=false;
 
+int n_auctions=0;
+
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
     for (int i=1; i < argc; i++) {
         if (!strcmp(argv[i], "-p")) 
@@ -28,8 +32,22 @@ void process_arguments(int argc, char** argv) {         // processes the argumen
     }
 }
 
-int main(int argc, char** argv) {
+int count_auctions() {
+    int count = 0;
+    DIR* auctions_dir = opendir("./AUCTIONS");
+    struct dirent* entry;
 
+    if (auctions_dir == NULL)
+        return -1;
+
+    while ((entry = readdir(auctions_dir)) != NULL)
+        count++;
+
+    printf("%d\n", count);
+    return count-2;         // The directory keeps the directories "." and ".."
+}
+
+int main(int argc, char** argv) {
     as_port = PORT;
 
     if (argc > 1)
@@ -85,6 +103,11 @@ int main(int argc, char** argv) {
         FD_SET(fd_udp, &fdset);
 
         select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
+    
+        if ((n_auctions = count_auctions()) == -1) {
+            if (verbose)    printf("Database error: directory \"AUCTIONS\" not found");
+            return 1;
+        }
 
         if (FD_ISSET(fd_tcp, &fdset)) {
             addrlen = sizeof(addr);
@@ -102,8 +125,8 @@ int main(int argc, char** argv) {
                 string response;
                 sscanf(buffer, "%s", command_word);
 
-                if (!strcmp(command_word, "LIN"))
-                    response = "RLI " + login(buffer) + "\n";
+                if (!strcmp(command_word, "OPA"))
+                    response = "ROA " + open(buffer) + "\n";
                 
                 const char* response2 = response.c_str();
                 if (write(newfd, (const char*)response2, sizeof(response2)) < 0)
@@ -153,6 +176,8 @@ string login(char arguments[]) {
 
     sscanf(arguments, "%*s %s %s", UID, password);
 
+    /* ARGUMENT PROCESSING*/
+
     if ((strlen(UID) != 6) || (strlen(password) > 8)) {
         if (verbose)
             printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
@@ -166,6 +191,8 @@ string login(char arguments[]) {
         }
     }
 
+    /* COMMAND EXECUTION */
+
     char dir_name[BUFFER_SIZE];
     strcpy(dir_name, "./USERS/");
     strcat(dir_name, UID);
@@ -175,6 +202,7 @@ string login(char arguments[]) {
     string password_file_name = dir_name_str + "/" + UID + "_password.txt";
 
     DIR* dir = opendir(dir_name);
+    // User exists -> login
     if (dir) {
         closedir(dir);
         int file_exists = access(password_file_name.c_str(), F_OK);
@@ -215,19 +243,25 @@ string login(char arguments[]) {
         }
 
     }
-
+    // User does not exist -> new registration
     else {
         string hosted = dir_name_str + "/HOSTED";
         string bidded = dir_name_str + "/BIDDED";
 
-        if(mkdir(dir_name, S_IRWXU) == -1)
-            return "";                             // CHANGE ERROR
+        if(mkdir(dir_name, S_IRWXU) == -1) {
+            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
+            return "NOK";
+        }
         
-        if(mkdir(hosted.c_str(), S_IRWXU) == -1)
-            return "";                             // CHANGE ERROR
+        if(mkdir(hosted.c_str(), S_IRWXU) == -1) {
+            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
+            return "NOK";
+        }
 
-        if(mkdir(bidded.c_str(), S_IRWXU) == -1)
-            return "";                             // CHANGE ERROR
+        if(mkdir(bidded.c_str(), S_IRWXU) == -1) {
+            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
+            return "NOK";
+        }
 
         FILE* fd_user = fopen(user_file_name.c_str(), "w");
         FILE* fd_pass = fopen(password_file_name.c_str(), "w");
@@ -247,6 +281,8 @@ string logout(char arguments[]) {
     char UID[10], password[BUFFER_SIZE];
     sscanf(arguments, "%*s %s %s", UID, password);
     string str_UID(UID);
+
+    /* COMMAND EXECUTION */
 
     string dir_name = "./USERS/" + str_UID;
     DIR* dir = opendir(dir_name.c_str());
@@ -283,6 +319,8 @@ string unregister(char arguments[]) {
     sscanf(arguments, "%*s %s %s", UID, password);
     string str_UID(UID);
 
+    /* COMMAND EXECUTION */
+
     string dir_name = "./USERS/" + str_UID;
     DIR* dir = opendir(dir_name.c_str());
     if (dir) {
@@ -312,4 +350,64 @@ string unregister(char arguments[]) {
             printf("%s: logout; failed to locate user in the database\n", UID);
         return "UNR";
     }
+}
+
+string open(char arguments[]) {                         // ASSET NAME IS MISSING!!!!!!!!!!!!!!!!! PLS FIX LATER
+    char UID[10], name[20], asset_name[BUFFER_SIZE];
+    int start_value, timeactive;
+    sscanf(arguments, "%*s %s %*s %s %d %d %s", UID, name, &start_value, &timeactive, asset_name);
+
+    /* ARGUMENT PROCESSING */
+
+    if ((start_value < 0) || (timeactive < 0)) {
+        if (verbose)    printf("%s: open; values should be positive or 0", name);
+        return "NOK";
+    }
+
+    if (n_auctions == MAX_AUCTIONS) {
+        if (verbose)    printf("%s: open; maximum number of auctions has been reached", name);
+        return "NOK";
+    }
+
+    /* COMMAND EXECUTION */
+
+    (n_auctions)++;
+    int n_AID = n_auctions;
+    string s_AID = to_string(n_AID);
+    string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
+
+    // Create .txt on User directory
+    char dir_name[BUFFER_SIZE];
+    strcpy(dir_name, "./USERS/");
+    strcat(dir_name, UID);
+
+    string hosted_file = string(dir_name) + "/HOSTED/" + AID + ".txt";
+    FILE* fd_hosted = fopen(hosted_file.c_str(), "w");
+    fclose(fd_hosted);
+
+    // Create directory in AUCTIONS
+    string auctions_dir = "./AUCTIONS/" + AID;
+    string bids_dir = auctions_dir + "/BIDS";
+    if (mkdir(auctions_dir.c_str(), S_IRWXU) == -1) {
+        if (verbose)    printf("%s: new auction; failed to create a auction directory\n", AID.c_str());
+        return "NOK";
+    }
+    if (mkdir(bids_dir.c_str(), S_IRWXU) == -1) {
+        if (verbose)    printf("%s: new auction; failed to create a auction directory\n", AID.c_str());
+        return "NOK";
+    }
+
+    string start_file_name = auctions_dir + "/START_"+ AID +".txt";
+    FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
+    string start_file_content = string(UID) + " " + name + " " + asset_name + " " + to_string(start_value) + " " +
+        to_string(timeactive) + " ";
+    fprintf(fd_start_file, "%s", start_file_content.c_str());
+    time_t start_fulltime = time(NULL);
+    struct tm *start_date_time = localtime(&start_fulltime);
+    fprintf(fd_start_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", start_date_time->tm_year+1900, start_date_time->tm_mon + 1, start_date_time->tm_mday,
+        start_date_time->tm_hour, start_date_time->tm_min, start_date_time->tm_sec, start_fulltime);
+
+    fclose(fd_start_file);
+    if (verbose)    printf("%s: new auction; new auction successfully created\n", AID.c_str());
+    return "OK";
 }

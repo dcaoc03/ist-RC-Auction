@@ -8,7 +8,7 @@ void login(char* arguments);
 void logout();
 void unregister();
 void exit(int* ending);
-void open();
+void open(char* arguments);
 void close();
 void myauctions();
 void mybids();
@@ -18,6 +18,6 @@ void bid();
 void show_record();
 
 std::string UDPclient(char message[], unsigned int message_size);
-int TCPclient();
+std::string TCPclient(char message[], unsigned int message_size);
 
 #endif

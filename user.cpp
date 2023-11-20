@@ -109,6 +109,8 @@ int main(int argc, char** argv) {
                 unregister();
             else if (!strcmp(command_word, "exit"))
                 exit(&end);
+            else if (!strcmp(command_word, "open"))
+                open(command_buffer);
         }
         
     }
@@ -185,6 +187,21 @@ void exit(int* ending) {
     }
 }
 
+void open(char arguments[]) {
+    string message = "OPA " + user_ID + " " + user_password;
+    char name[20], asset_name[BUFFER_SIZE];
+    int start_value, timeactive;
+
+    sscanf(arguments, "%*s %s %s %d %d", name, asset_name, &start_value, &timeactive);
+
+    message += " " + string(name) + " " + to_string(start_value) + " " + to_string(timeactive)
+        + " " + asset_name;
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    string request_result = TCPclient(message2, sizeof(message2));
+}
+
 
 /* SOCKET WRITING */
 
@@ -204,7 +221,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     return buffer;
 }
 
-int TCPclient(char message[], unsigned int message_size) {
+string TCPclient(char message[], unsigned int message_size) {
     int fd;
     ssize_t n;
     //socklen_t addrlen;
@@ -213,30 +230,30 @@ int TCPclient(char message[], unsigned int message_size) {
     char buffer[128];
 
     if ((fd=socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        return -1;
+        return "";
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
     if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints, &res)) != 0)       // CHECK THE NAME/IP ADDRESS!!!!
-        return -1;
+        return "";
 
     n = connect(fd, res->ai_addr, res->ai_addrlen);
     if (n == -1)
-        return -1;
+        return "";
     n = write(fd, message, message_size);
     if (n == -1)
-        return -1;
+        return "";
     n = read(fd, buffer, 128);
     if (n == -1)
-        return -1;
+        return "";
     
     if ((write(1, buffer, n)) == -1)
-        return -1;
+        return "";
 
     freeaddrinfo(res);
     close(fd);
 
-    return 1;
+    return "OK";
 }
