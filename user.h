@@ -1,7 +1,7 @@
 #ifndef USER
 #define USER
 
-#define PORT "58000"
+#define PORT "58104"
 #define BUFFER_SIZE 128
 
 #define MAX_JPG_SIZE 10000000

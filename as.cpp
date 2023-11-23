@@ -57,29 +57,29 @@ int main(int argc, char** argv) {
 
     int fd_tcp, fd_udp, newfd;
     ssize_t n;
-    socklen_t addrlen;
-    struct addrinfo hints, *res;
-    struct sockaddr_in addr;
+    socklen_t addrlen_tcp, addrlen_udp;
+    struct addrinfo hints_tcp, hints_udp, *res_tcp, *res_udp;
+    struct sockaddr_in addr_tcp, addr_udp;
     char buffer[BUFFER_SIZE], command_word[BUFFER_SIZE];
     fd_set fdset;
 
     pid_t child_pid;
 
-    memset(&hints, 0, sizeof hints );
-    hints.ai_family=AF_INET;
-    hints.ai_socktype=SOCK_STREAM;
-    hints.ai_flags=AI_PASSIVE;
-
-    if (getaddrinfo(NULL, PORT, &hints, &res) != 0)
-        exit(1);
-
     /* CREATE TCP SOCKET */
    
+    memset(&hints_tcp, 0, sizeof hints_tcp );
+    hints_tcp.ai_family=AF_INET;
+    hints_tcp.ai_socktype=SOCK_STREAM;
+    hints_tcp.ai_flags=AI_PASSIVE;
+
+    if (getaddrinfo(NULL, PORT, &hints_tcp, &res_tcp) != 0)
+        exit(1);
+
     fd_tcp = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_tcp == -1)
         exit(1); 
 
-    n = bind(fd_tcp, res->ai_addr, res->ai_addrlen);
+    n = bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen);
     if (n==-1)
         exit(1);
     
@@ -88,11 +88,19 @@ int main(int argc, char** argv) {
     
     /* CREATE UDP SOCKET */
 
+    memset(&hints_udp, 0, sizeof hints_udp );
+    hints_udp.ai_family=AF_INET;
+    hints_udp.ai_socktype=SOCK_DGRAM;
+    hints_udp.ai_flags=AI_PASSIVE;
+
+    if (getaddrinfo(NULL, PORT, &hints_udp, &res_udp) != 0)
+        exit(1);
+
     fd_udp=socket(AF_INET, SOCK_DGRAM, 0);
     if (fd_udp == -1)
         exit(1);
 
-    n=bind(fd_udp, res->ai_addr, res->ai_addrlen);
+    n=bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen);
     if (n == -1)
         exit(1);
 
@@ -111,8 +119,8 @@ int main(int argc, char** argv) {
         }
 
         if (FD_ISSET(fd_tcp, &fdset)) {
-            addrlen = sizeof(addr);
-            if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr, &addrlen)) == -1)
+            addrlen_tcp = sizeof(addr_tcp);
+            if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr_tcp, &addrlen_tcp)) == -1)
                 exit(1);
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
@@ -141,9 +149,9 @@ int main(int argc, char** argv) {
 
         }
         if (FD_ISSET(fd_udp, &fdset)) { 
-            addrlen = sizeof(addr);
+            addrlen_udp = sizeof(addr_udp);
             bzero(buffer, sizeof(buffer)); 
-            n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen);
+            n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
 
             /* REQUEST PROCESSING */
             string response;
@@ -164,7 +172,7 @@ int main(int argc, char** argv) {
             
             const char* response2 = response.c_str();
 
-            n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr, addrlen);
+            n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr_udp, addrlen_udp);
             if(n==-1)
                 exit(1);
         } 
@@ -185,16 +193,16 @@ string login(char arguments[]) {
     if ((strlen(UID) != 6) || (strlen(password) != 8)) {
         if (verbose)
             printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
-        return "NOK";
+        return "ERR";
     }
     for (int i=0; i < 8; i++) {
         if ((i < 6) && !isdigit(UID[i])) {
             if (verbose)    printf("%s: new login; unsuccessful login, UID must be six digits\n", UID);
-            return "NOK";
+            return "ERR";
         }
         if (!isdigit(password[i]) && (isalpha(password[i]) == 0)) {
             if (verbose)    printf("%s: new login; unsuccessful login, password must be eight alphanumeric digits\n", UID);
-            return "NOK";
+            return "ERR";
         }
     }
 
@@ -248,6 +256,8 @@ string login(char arguments[]) {
                 printf("%s: new login; successful login\n", UID);
             return "OK";
         }
+
+        return "ERR";
 
     }
     // User does not exist -> new registration
