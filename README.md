@@ -22,3 +22,5 @@ DONE:
   - login
   - logout
   - unregister
+
+Should we add a wait() when issuing a TCP request? That's a question for later :P

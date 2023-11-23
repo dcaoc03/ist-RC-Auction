@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include<sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -43,7 +44,6 @@ int count_auctions() {
     while ((entry = readdir(auctions_dir)) != NULL)
         count++;
 
-    printf("%d\n", count);
     return count-2;         // The directory keeps the directories "." and ".."
 }
 
@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
     struct sockaddr_in addr;
     char buffer[BUFFER_SIZE], command_word[BUFFER_SIZE];
     fd_set fdset;
+
     pid_t child_pid;
 
     memset(&hints, 0, sizeof hints );
@@ -124,16 +125,19 @@ int main(int argc, char** argv) {
                 /* REQUEST PROCESSING */
                 string response;
                 sscanf(buffer, "%s", command_word);
+                printf("Command word: %s\n", command_word); 
 
-                if (!strcmp(command_word, "OPA"))
-                    response = "ROA " + open(buffer) + "\n";
+                if (!strcmp(command_word, "OPA")) {
+                    string status = open_auction(buffer, newfd);
+                    response = "ROA " + status + "\n";
+                }
                 
                 const char* response2 = response.c_str();
-                if (write(newfd, (const char*)response2, sizeof(response2)) < 0)
+                if (write(newfd, (const char*)response2, strlen(response2)) < 0)
                     exit(1); 
                 close(newfd); 
                 exit(0); 
-            } 
+            }
 
         }
         if (FD_ISSET(fd_udp, &fdset)) { 
@@ -178,15 +182,18 @@ string login(char arguments[]) {
 
     /* ARGUMENT PROCESSING*/
 
-    if ((strlen(UID) != 6) || (strlen(password) > 8)) {
+    if ((strlen(UID) != 6) || (strlen(password) != 8)) {
         if (verbose)
             printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
         return "NOK";
     }
-    for (int i=0; i < 6; i++) {
-        if (!isdigit(UID[i])) {
-            if (verbose)
-                printf("%s: new login; unsuccessful login, UID must be six digits\n", UID);
+    for (int i=0; i < 8; i++) {
+        if ((i < 6) && !isdigit(UID[i])) {
+            if (verbose)    printf("%s: new login; unsuccessful login, UID must be six digits\n", UID);
+            return "NOK";
+        }
+        if (!isdigit(password[i]) && (isalpha(password[i]) == 0)) {
+            if (verbose)    printf("%s: new login; unsuccessful login, password must be eight alphanumeric digits\n", UID);
             return "NOK";
         }
     }
@@ -352,10 +359,20 @@ string unregister(char arguments[]) {
     }
 }
 
-string open(char arguments[]) {                         // ASSET NAME IS MISSING!!!!!!!!!!!!!!!!! PLS FIX LATER
-    char UID[10], name[20], asset_name[BUFFER_SIZE];
-    int start_value, timeactive;
-    sscanf(arguments, "%*s %s %*s %s %d %d %s", UID, name, &start_value, &timeactive, asset_name);
+string open_auction(char arguments[], int fd) {
+    printf("I opened\n");
+    char UID[10], name[20], asset_name[BUFFER_SIZE], image[MAX_JPG_SIZE];
+    int start_value, timeactive, asset_size, n;
+    sscanf(arguments, "%*s %s %*s %s %d %d %s %d", UID, name, &start_value, &timeactive, asset_name, &asset_size);
+
+    /*printf("Image being received: %s\n", image);
+    for (int i=asset_size; i > 0; i -= IMAGE_TRANSMISSION_SPEED) {
+        printf("%d\n", i);
+        n = read(fd, image+(asset_size-i), IMAGE_TRANSMISSION_SPEED);
+        if (n == -1)
+            return "";           
+    }
+    printf("Image received: %s\n", image);*/
 
     /* ARGUMENT PROCESSING */
 
@@ -409,5 +426,5 @@ string open(char arguments[]) {                         // ASSET NAME IS MISSING
 
     fclose(fd_start_file);
     if (verbose)    printf("%s: new auction; new auction successfully created\n", AID.c_str());
-    return "OK";
+    return "OK " + AID;
 }

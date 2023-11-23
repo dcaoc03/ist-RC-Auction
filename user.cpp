@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sendfile.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include <string>
 
@@ -139,6 +141,7 @@ void login(char arguments[]) {
         if (!strcmp(response, "OK"))          {printf("User successfully logged in\n"); user_ID = UID; user_password = password;}
         else if (!strcmp(response, "NOK"))    printf("User failed to log in\n"); 
         else if (!strcmp(response, "REG"))    {printf("New user successfully reggistered\n"); user_ID = UID; user_password = password;}
+        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -156,6 +159,7 @@ void logout() {
         if (!strcmp(response, "OK"))          {printf("User successfully logged out\n"); user_ID = ""; user_password = "";}
         else if (!strcmp(response, "NOK"))    printf("User failed to log out\n");
         else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
+        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -173,6 +177,7 @@ void unregister() {
         if (!strcmp(response, "OK"))          {printf("User successfully unregistered\n"); user_ID = ""; user_password = "";}
         else if (!strcmp(response, "NOK"))    printf("User failed to unregister\n");
         else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
+        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -187,19 +192,66 @@ void exit(int* ending) {
     }
 }
 
+int image_processing(char image_name[], string* message) {
+    // Get image size
+    FILE* jpg_pointer = fopen(image_name, "rb");
+    int fd_jpg;
+    if (jpg_pointer == NULL) {
+        printf("ERROR: image file not found\n"); 
+        return -1;
+    }
+    fseek(jpg_pointer, 0, SEEK_END);
+    unsigned int jpg_size = ftell(jpg_pointer);
+    fseek(jpg_pointer, 0, SEEK_SET);
+    if (jpg_size > MAX_JPG_SIZE) {
+        printf("ERROR: file size exceeds 10 MB\n"); 
+        return -1;
+    }
+    fclose(jpg_pointer);
+    *message += " " + to_string(jpg_size) + " ";
+
+    if((fd_jpg = open(image_name, S_IRUSR)) < 0) {
+        printf("ERROR: failed to open jpg file\n");
+        return -1;
+    }
+    return fd_jpg;
+}
+
 void open(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
     char name[20], asset_name[BUFFER_SIZE];
-    int start_value, timeactive;
+    int start_value, timeactive, jpg_fd;
 
     sscanf(arguments, "%*s %s %s %d %d", name, asset_name, &start_value, &timeactive);
 
+    if (strlen(asset_name) > 24) {
+        printf("ERROR: file name exceeds 24 alphanumerical characters\n"); 
+        return;
+    }
+
     message += " " + string(name) + " " + to_string(start_value) + " " + to_string(timeactive)
         + " " + asset_name;
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
 
-    string request_result = TCPclient(message2, sizeof(message2));
+    if ((jpg_fd = image_processing(asset_name, &message)) == -1) {
+        printf("ERROR: failed to open jpg\n"); 
+        return;
+    }
+
+    const char* message2 = message.c_str();
+    printf("sent message: %s\n", message2);
+    string request_result = TCPclient(message2, strlen(message2), jpg_fd);
+    if (request_result == "")
+        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+    else {             // If unregistration is successful
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "OK"))          {printf("Auction successfully started\n"); user_ID = ""; user_password = "";}
+        else if (!strcmp(response, "NOK"))    printf("Auction failed to start\n");
+        else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
+        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
+    }
+
+    close(jpg_fd);
 }
 
 
@@ -221,7 +273,10 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     return buffer;
 }
 
-string TCPclient(char message[], unsigned int message_size) {
+
+
+
+string TCPclient(const char message[], unsigned int message_size, int image_fd) {
     int fd;
     ssize_t n;
     //socklen_t addrlen;
@@ -245,15 +300,21 @@ string TCPclient(char message[], unsigned int message_size) {
     n = write(fd, message, message_size);
     if (n == -1)
         return "";
+    /*printf("Sending image\n");
+    int image_size;
+    sscanf(message, "%*s %*s %*s %*d %*d %d", &image_size);
+    n = sendfile(fd, image_fd, NULL, image_size);
+    printf("Image sent\n");*/
     n = read(fd, buffer, 128);
     if (n == -1)
         return "";
     
     if ((write(1, buffer, n)) == -1)
         return "";
+    
 
     freeaddrinfo(res);
     close(fd);
 
-    return "OK";
+    return buffer;
 }
