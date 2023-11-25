@@ -1,12 +1,6 @@
 #ifndef USER
 #define USER
 
-#define PORT "58104"
-#define BUFFER_SIZE 128
-
-#define MAX_JPG_SIZE 10000000
-#define IMAGE_TRANSMISSION_SPEED 1
-
 void login(char* arguments);
 void logout();
 void unregister();

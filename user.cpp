@@ -12,6 +12,7 @@
 #include <string>
 
 #include "user.h"
+#include "./common/constants.h"
 
 using namespace std;
 
@@ -219,20 +220,24 @@ int image_processing(char image_name[], string* message) {
 
 void open(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
-    char name[20], asset_name[BUFFER_SIZE];
+    char asset_name[20], file_name[BUFFER_SIZE];
     int start_value, timeactive, jpg_fd;
 
-    sscanf(arguments, "%*s %s %s %d %d", name, asset_name, &start_value, &timeactive);
+    sscanf(arguments, "%*s %s %s %d %d", asset_name, file_name, &start_value, &timeactive);
 
-    if (strlen(asset_name) > 24) {
-        printf("ERROR: file name exceeds 24 alphanumerical characters\n"); 
+    if (strlen(asset_name) > ASSET_NAME_SIZE) {
+        printf("ERROR: file asset_name exceeds %d alphanumerical characters\n", ASSET_NAME_SIZE); 
+        return;
+    }
+    if (strlen(file_name) > FILE_NAME_SIZE) {
+        printf("ERROR: file asset_name exceeds %d alphanumerical characters\n", FILE_NAME_SIZE); 
         return;
     }
 
-    message += " " + string(name) + " " + to_string(start_value) + " " + to_string(timeactive)
-        + " " + asset_name;
+    message += " " + string(asset_name) + " " + to_string(start_value) + " " + to_string(timeactive)
+        + " " + file_name;
 
-    if ((jpg_fd = image_processing(asset_name, &message)) == -1) {
+    if ((jpg_fd = image_processing(file_name, &message)) == -1) {
         printf("ERROR: failed to open jpg\n"); 
         return;
     }

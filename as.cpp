@@ -16,6 +16,7 @@
 #include <cctype>
 
 #include "as.h"
+#include "./common/constants.h"
 
 using namespace std;
 
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
     socklen_t addrlen_tcp, addrlen_udp;
     struct addrinfo hints_tcp, hints_udp, *res_tcp, *res_udp;
     struct sockaddr_in addr_tcp, addr_udp;
-    char buffer[BUFFER_SIZE], command_word[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE], command_word[COMMAND_WORD_SIZE+1];
     fd_set fdset;
 
     pid_t child_pid;
@@ -124,19 +125,16 @@ int main(int argc, char** argv) {
                 exit(1);
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
-                bzero(buffer, sizeof(buffer)); 
-                printf("Message From TCP client: "); 
-                if (read(newfd, buffer, sizeof(buffer)) < 0)
-                    exit(1); 
-                puts(buffer);
+                char command_word[COMMAND_WORD_SIZE+1];
+                if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false) < 0)    exit(1);
+                
+                printf("command word: %s\n", command_word);
 
                 /* REQUEST PROCESSING */
                 string response;
-                sscanf(buffer, "%s", command_word);
-                printf("Command word: %s\n", command_word); 
 
                 if (!strcmp(command_word, "OPA")) {
-                    string status = open_auction(buffer, newfd);
+                    string status = open_auction(newfd);
                     response = "ROA " + status + "\n";
                 }
                 
@@ -369,11 +367,29 @@ string unregister(char arguments[]) {
     }
 }
 
-string open_auction(char arguments[], int fd) {
+string open_auction(int fd) {
     printf("I opened\n");
-    char UID[10], name[20], asset_name[BUFFER_SIZE], image[MAX_JPG_SIZE];
-    int start_value, timeactive, asset_size, n;
-    sscanf(arguments, "%*s %s %*s %s %d %d %s %d", UID, name, &start_value, &timeactive, asset_name, &asset_size);
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
+        timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
+
+    if (byte_reading(fd, UID, UID_SIZE, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false) == -1)   return "ERR";
+    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true) == -1)   return "ERR";
+    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true) == -1)   return "ERR";
+    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true) == -1)   return "ERR";
+    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true) == -1)   return "ERR";
+    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true) == -1)   return "ERR";
+    
+    int start_value = atoi(start_value_str);
+    int timeactive = atoi(timeactive_str);
+    int file_size = atoi(file_size_str);
+
+    printf("Read: %s %s %s %d %d %s %d\n", UID, password, asset_name, start_value, timeactive, file_name, file_size);
+
+
+    //sscanf(arguments, "%*s %s %*s %s %d %d %s %d", UID, name, &start_value, &timeactive, asset_name, &asset_size);
+
+
 
     /*printf("Image being received: %s\n", image);
     for (int i=asset_size; i > 0; i -= IMAGE_TRANSMISSION_SPEED) {
@@ -387,12 +403,12 @@ string open_auction(char arguments[], int fd) {
     /* ARGUMENT PROCESSING */
 
     if ((start_value < 0) || (timeactive < 0)) {
-        if (verbose)    printf("%s: open; values should be positive or 0", name);
+        if (verbose)    printf("%s: open; values should be positive or 0", asset_name);
         return "NOK";
     }
 
     if (n_auctions == MAX_AUCTIONS) {
-        if (verbose)    printf("%s: open; maximum number of auctions has been reached", name);
+        if (verbose)    printf("%s: open; maximum number of auctions has been reached", asset_name);
         return "NOK";
     }
 
@@ -426,7 +442,7 @@ string open_auction(char arguments[], int fd) {
 
     string start_file_name = auctions_dir + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
-    string start_file_content = string(UID) + " " + name + " " + asset_name + " " + to_string(start_value) + " " +
+    string start_file_content = string(UID) + " " + asset_name + " " + file_name + " " + to_string(start_value) + " " +
         to_string(timeactive) + " ";
     fprintf(fd_start_file, "%s", start_file_content.c_str());
     time_t start_fulltime = time(NULL);
