@@ -142,7 +142,7 @@ void login(char arguments[]) {
         if (!strcmp(response, "OK"))          {printf("User successfully logged in\n"); user_ID = UID; user_password = password;}
         else if (!strcmp(response, "NOK"))    printf("User failed to log in\n"); 
         else if (!strcmp(response, "REG"))    {printf("New user successfully reggistered\n"); user_ID = UID; user_password = password;}
-        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -160,7 +160,7 @@ void logout() {
         if (!strcmp(response, "OK"))          {printf("User successfully logged out\n"); user_ID = ""; user_password = "";}
         else if (!strcmp(response, "NOK"))    printf("User failed to log out\n");
         else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
-        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -178,7 +178,7 @@ void unregister() {
         if (!strcmp(response, "OK"))          {printf("User successfully unregistered\n"); user_ID = ""; user_password = "";}
         else if (!strcmp(response, "NOK"))    printf("User failed to unregister\n");
         else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
-        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: failed to write to socket\n");
     }
 }
 
@@ -258,7 +258,7 @@ void open_auction(char arguments[]) {
         }
         else if (!strcmp(response, "NOK"))    printf("Auction failed to start\n");
         else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
-        else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: failed to write to socket\n");
     }
 
     close(jpg_fd);
@@ -273,8 +273,8 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     struct sockaddr_in addr;
     char buffer[128];
     
-    if ((n = sendto(fd_UDP, message, message_size, 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1)        // CHANGE MESSAGE!!!!!
-        return "";
+    if ((n = sendto(fd_UDP, message, message_size, 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1)
+        return "ERR";
     
     addrlen = sizeof(addr);
     if ((n = recvfrom(fd_UDP, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1)

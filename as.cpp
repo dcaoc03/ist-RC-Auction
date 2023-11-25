@@ -180,15 +180,14 @@ int main(int argc, char** argv) {
 /* REQUEST HANDLING FUNCTIONS */
 
 string login(char arguments[]) {
-    char UID[10], password[BUFFER_SIZE];
+    char UID[UID_SIZE*2], password[PASSWORD_SIZE*2];
 
     sscanf(arguments, "%*s %s %s", UID, password);
 
     /* ARGUMENT PROCESSING*/
 
     if ((strlen(UID) != 6) || (strlen(password) != 8)) {
-        if (verbose)
-            printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
+        if (verbose)        printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
         return "ERR";
     }
     for (int i=0; i < 8; i++) {
@@ -223,8 +222,10 @@ string login(char arguments[]) {
             char password_in_file[BUFFER_SIZE];
             memset(password_in_file, 0, sizeof(password_in_file));
 
-            if (fread(password_in_file, sizeof(char), BUFFER_SIZE, fd_pass) < 0)
-                return "";                             // CHANGE ERROR
+            if (fread(password_in_file, sizeof(char), BUFFER_SIZE, fd_pass) < 0) {
+                if (verbose)    printf("%s: new login; failed to read from file\n", UID);
+                return "ERR";
+            }
             fclose(fd_pass);
 
             if (!strcmp(password_in_file, password)) {
@@ -291,7 +292,7 @@ string login(char arguments[]) {
 }
 
 string logout(char arguments[]) {
-    char UID[10], password[BUFFER_SIZE];
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
     sscanf(arguments, "%*s %s %s", UID, password);
     string str_UID(UID);
 
@@ -328,7 +329,7 @@ string logout(char arguments[]) {
 }
 
 string unregister(char arguments[]) {
-    char UID[10], password[BUFFER_SIZE];
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
     sscanf(arguments, "%*s %s %s", UID, password);
     string str_UID(UID);
 
