@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 
     fd_tcp = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_tcp == -1)
-        exit(1); 
+        exit(1);
 
     n = bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen);
     if (n==-1)
@@ -127,8 +127,6 @@ int main(int argc, char** argv) {
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
                 if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false) < 0)    exit(1);
-                
-                printf("command word: %s\n", command_word);
 
                 /* REQUEST PROCESSING */
                 string response;
@@ -367,11 +365,11 @@ string unregister(char arguments[]) {
     }
 }
 
-string open_auction(int fd) {
-    printf("I opened\n");
+string open_auction(int fd) {           // ADD NLG RESPONSE !!!!!!!!
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
         timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
 
+    // Reading the parameters
     if (byte_reading(fd, UID, UID_SIZE, false) == -1)   return "ERR";
     if (byte_reading(fd, password, PASSWORD_SIZE, false) == -1)   return "ERR";
     if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true) == -1)   return "ERR";
@@ -380,28 +378,41 @@ string open_auction(int fd) {
     if (byte_reading(fd, file_name, FILE_NAME_SIZE, true) == -1)   return "ERR";
     if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true) == -1)   return "ERR";
     
+    // Converting the numeric parameters
     int start_value = atoi(start_value_str);
     int timeactive = atoi(timeactive_str);
     int file_size = atoi(file_size_str);
 
-    printf("Read: %s %s %s %d %d %s %d\n", UID, password, asset_name, start_value, timeactive, file_name, file_size);
-
-
-    //sscanf(arguments, "%*s %s %*s %s %d %d %s %d", UID, name, &start_value, &timeactive, asset_name, &asset_size);
-
-
-
-    /*printf("Image being received: %s\n", image);
-    for (int i=asset_size; i > 0; i -= IMAGE_TRANSMISSION_SPEED) {
-        printf("%d\n", i);
-        n = read(fd, image+(asset_size-i), IMAGE_TRANSMISSION_SPEED);
-        if (n == -1)
-            return "";           
+    // Reading the image
+    char image_buffer[IMAGE_BUFFER_SIZE];
+    char* image = (char*) malloc(sizeof(char)*file_size);
+    int n, bytes_read=0;
+    memset(image, 0, file_size);
+    while (bytes_read < file_size) {
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+        n = read(fd, image_buffer, n);
+        if (n < 0) {
+            printf("ERROR: failed to read from socket\n");
+            return "ERR";
+        }
+        memcpy(image+bytes_read, image_buffer, n);
+        bytes_read += n;
     }
-    printf("Image received: %s\n", image);*/
+
+    // Reading the '\n' character at the end
+    char read_char;
+    n = read(fd, &read_char, 1);
+    if (n < 0) {
+        printf("ERROR: failed to read from socket\n");
+        return "ERR";
+    }
+    if (read_char != '\n') {
+        printf("ERROR: badly formatted message\n");
+        return "ERR";
+    }
 
     /* ARGUMENT PROCESSING */
-
     if ((start_value < 0) || (timeactive < 0)) {
         if (verbose)    printf("%s: open; values should be positive or 0", asset_name);
         return "NOK";
@@ -440,6 +451,21 @@ string open_auction(int fd) {
         return "NOK";
     }
 
+    // Create image
+    string image_name = auctions_dir + "/" + file_name;
+    FILE* fd_image = fopen(image_name.c_str(), "w");
+    bytes_read = 0;
+    while (bytes_read < file_size) {
+        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        memcpy(image_buffer, image+bytes_read, n);
+        n = fwrite(image_buffer, 1, n, fd_image);
+        bytes_read += n;
+    }
+    fclose(fd_image);
+    free(image);
+
+    // Create Start file
     string start_file_name = auctions_dir + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
     string start_file_content = string(UID) + " " + asset_name + " " + file_name + " " + to_string(start_value) + " " +

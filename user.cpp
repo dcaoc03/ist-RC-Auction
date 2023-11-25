@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
             else if (!strcmp(command_word, "exit"))
                 exit(&end);
             else if (!strcmp(command_word, "open"))
-                open(command_buffer);
+                open_auction(command_buffer);
         }
         
     }
@@ -218,7 +218,7 @@ int image_processing(char image_name[], string* message) {
     return fd_jpg;
 }
 
-void open(char arguments[]) {
+void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
     char asset_name[20], file_name[BUFFER_SIZE];
     int start_value, timeactive, jpg_fd;
@@ -243,14 +243,19 @@ void open(char arguments[]) {
     }
 
     const char* message2 = message.c_str();
-    printf("sent message: %s\n", message2);
     string request_result = TCPclient(message2, strlen(message2), jpg_fd);
-    if (request_result == "")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+    if (request_result == "ERR")
+        printf("ERROR: failed to write to socket\n");
     else {             // If unregistration is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "OK"))          {printf("Auction successfully started\n"); user_ID = ""; user_password = "";}
+        if (!strcmp(response, "OK")) {
+            char AID[COMMAND_WORD_SIZE+1];
+            sscanf(request_result.c_str(), "%*s %*s %s", AID);
+            printf("Auction %s successfully started\n", AID); 
+            user_ID = ""; 
+            user_password = "";
+        }
         else if (!strcmp(response, "NOK"))    printf("Auction failed to start\n");
         else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
         else if (!strcmp(response, ""))        printf("ERROR: failed to write to socket\n");
@@ -273,7 +278,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     
     addrlen = sizeof(addr);
     if ((n = recvfrom(fd_UDP, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1)
-        return "";
+        return "ERR";
 
     return buffer;
 }
@@ -284,39 +289,42 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
 string TCPclient(const char message[], unsigned int message_size, int image_fd) {
     int fd;
     ssize_t n;
-    //socklen_t addrlen;
     struct addrinfo hints, *res;
-    //struct sockaddr_in addr;
     char buffer[128];
 
-    if ((fd=socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        return "";
+    fd=socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1)   {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints, &res)) != 0)       // CHECK THE NAME/IP ADDRESS!!!!
-        return "";
-
+    n = getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints, &res);
+    if (n != 0)     {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
     n = connect(fd, res->ai_addr, res->ai_addrlen);
-    if (n == -1)
-        return "";
+    if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
     n = write(fd, message, message_size);
-    if (n == -1)
-        return "";
-    /*printf("Sending image\n");
-    int image_size;
-    sscanf(message, "%*s %*s %*s %*d %*d %d", &image_size);
-    n = sendfile(fd, image_fd, NULL, image_size);
-    printf("Image sent\n");*/
+    if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
+
+    // Sending the Image
+    int image_size, bytes_read=0;
+    char image_buffer[IMAGE_BUFFER_SIZE];
+    sscanf(message, "%*s %*s %*s %*s %*d %*d %*s %d", &image_size);
+    while (bytes_read < image_size) {
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        n = read(image_fd, image_buffer, IMAGE_BUFFER_SIZE);
+        if (n<0)    {printf("ERROR: failed to read from socket\n");  return "ERR";}
+        n = write(fd, image_buffer, n);
+        if (n<0)    {printf("ERROR: failed to read from socket\n");  return "ERR";}
+        bytes_read += n;
+    }
+    char new_line_char = '\n';
+    n = write(fd, &new_line_char, 1);
+
+    // Await the answer
     n = read(fd, buffer, 128);
     if (n == -1)
-        return "";
-    
-    if ((write(1, buffer, n)) == -1)
-        return "";
-    
+        return "ERR";
 
     freeaddrinfo(res);
     close(fd);

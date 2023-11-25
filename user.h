@@ -5,7 +5,7 @@ void login(char* arguments);
 void logout();
 void unregister();
 void exit(int* ending);
-void open(char* arguments);
+void open_auction(char* arguments);
 void close();
 void myauctions();
 void mybids();

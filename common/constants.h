@@ -18,5 +18,6 @@
 
 // DEFAULT CONSTANTS
 #define BUFFER_SIZE 128
+#define IMAGE_BUFFER_SIZE 2048
 
 #endif
