@@ -3,18 +3,56 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <string.h>
 
 #include <string>
 
 #include "database_utils.h"
+#include "constants.h"
 
 using namespace std;
 
 /* ---------------------- BINARY FUNCTIONS ---------------------- */
 
+DIR* does_user_exist(string user_id) {
+    string dir_name = "./USERS/" + user_id;
+    DIR* dir = opendir(dir_name.c_str());
+    return dir;
+}
+
 int is_user_logged_in(string user_ID) {
     string login_file_name = "./USERS/" + user_ID + "/" + user_ID + "_login.txt";
     return access(login_file_name.c_str(), F_OK);
+}
+
+int is_user_registered(string user_ID) {
+    string login_file_name = "./USERS/" + user_ID + "/" + user_ID + "_password.txt";
+    return access(login_file_name.c_str(), F_OK);
+}
+
+// Returns 1 if accepted, 0 if not, -1 if error
+int user_password_check(char user_id[], char password[]) {
+    string user_id_str = string(user_id);
+    string password_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_password.txt";   
+    FILE* fd_pass = fopen(password_file_name.c_str(), "r");
+
+    char password_in_file[PASSWORD_SIZE+1];
+    memset(password_in_file, 0, sizeof(password_in_file));
+
+    if (fread(password_in_file, sizeof(char), PASSWORD_SIZE+1, fd_pass) < 0) {
+        return -1;
+    }
+    fclose(fd_pass);
+
+    if (!strcmp(password_in_file, password)) {
+        string user_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_login.txt";
+        FILE* fd_user = fopen(user_file_name.c_str(), "w");
+        fclose(fd_user);
+        return 1;
+    }
+    else 
+        return 0;
 }
 
 int does_auction_exist(string AID) {
@@ -55,6 +93,44 @@ int is_auction_ongoing(string AID) {
 }
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
+
+int create_user_dirs(string user_id) {
+    string dir_name = "./USERS/" + user_id;
+    string hosted = dir_name + "/HOSTED";
+    string bidded = dir_name + "/BIDDED";
+
+    if(mkdir(dir_name.c_str(), S_IRWXU) == -1) 
+        return -1;
+
+    if(mkdir(hosted.c_str(), S_IRWXU) == -1)
+        return -1;
+        
+    if(mkdir(bidded.c_str(), S_IRWXU) == -1)
+        return -1;
+    return 0;
+}
+
+int create_user(string user_id, char password[], bool create_directories) {
+    if (create_directories) 
+        if (create_user_dirs(user_id) == -1) 
+            return -1;
+    
+    string user_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
+    string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";        
+
+    FILE* fd_user = fopen(user_file_name.c_str(), "w");
+    FILE* fd_pass = fopen(password_file_name.c_str(), "w");
+
+    if ((fd_user == NULL) || (fd_pass == NULL))
+        return -1;
+
+    fprintf(fd_pass, "%s", password);
+
+    fclose(fd_user);
+    fclose(fd_pass);
+
+    return 0;
+}
 
 // Mode 's' to get start_fulltime and 'e' to get the predicted_ending_time, returns -1 in case of fscanf error
 time_t get_auction_start_and_end_fulltime(string AID, char mode) {

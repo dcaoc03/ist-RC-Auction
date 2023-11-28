@@ -210,54 +210,33 @@ string login(char arguments[]) {
 
     /* COMMAND EXECUTION */
 
-    char dir_name[BUFFER_SIZE];
-    strcpy(dir_name, "./USERS/");
-    strcat(dir_name, UID);
-
-    string dir_name_str(dir_name);
-    string user_file_name = dir_name_str + "/" + UID + "_login.txt";
-    string password_file_name = dir_name_str + "/" + UID + "_password.txt";
-
-    DIR* dir = opendir(dir_name);
-    // User exists -> login
+    DIR* dir = does_user_exist(UID);
+    // User exists (dir != NULL) -> login
     if (dir) {
         closedir(dir);
-        int file_exists = access(password_file_name.c_str(), F_OK);
-        if (file_exists == 0) {
-            FILE* fd_pass = fopen(password_file_name.c_str(), "r");
 
-            char password_in_file[BUFFER_SIZE];
-            memset(password_in_file, 0, sizeof(password_in_file));
-
-            if (fread(password_in_file, sizeof(char), BUFFER_SIZE, fd_pass) < 0) {
-                if (verbose)    printf("%s: new login; failed to read from file\n", UID);
-                return "ERR";
-            }
-            fclose(fd_pass);
-
-            if (!strcmp(password_in_file, password)) {
-                FILE* fd_user = fopen(user_file_name.c_str(), "w");
-                fclose(fd_user);
-                if (verbose)
-                    printf("%s: new login; successful login\n", UID);
+        int password_file_exists = is_user_registered(UID);
+        if (password_file_exists == 0) {
+            int password_check = user_password_check(UID, password);
+            if (password_check == 1) {
+                if (verbose)    printf("%s: new registration; successful login\n", UID);
                 return "OK";
             }
-            else {
-                if (verbose)
-                    printf("%s: new login; unsuccessful login\n", UID);
+            else if (password_check == 0) {
+                if (verbose)    printf("%s: new registration; wrong password\n", UID);
                 return "NOK";
             }
-        } else if (file_exists == -1) {
-            FILE* fd_user = fopen(user_file_name.c_str(), "w");
-            FILE* fd_pass = fopen(password_file_name.c_str(), "w");
+            else if (password_check == -1) {
+                if (verbose)    printf("%s: new registration; something wrong happened while checking password\n", UID);
+                return "ERR";
+            }
+        } else if (password_file_exists == -1) {
+            if (create_user(UID, password, false) < 0) {
+                if (verbose)    printf("%s: new registration; failed to create user\n", UID);
+                return "NOK";
+            }
 
-            fprintf(fd_pass, "%s", password);
-
-            fclose(fd_user);
-            fclose(fd_pass);
-
-            if (verbose)
-                printf("%s: new login; successful login\n", UID);
+            if (verbose)        printf("%s: new login; successful registration\n", UID);
             return "OK";
         }
 
@@ -266,34 +245,12 @@ string login(char arguments[]) {
     }
     // User does not exist -> new registration
     else {
-        string hosted = dir_name_str + "/HOSTED";
-        string bidded = dir_name_str + "/BIDDED";
-
-        if(mkdir(dir_name, S_IRWXU) == -1) {
-            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
-            return "NOK";
-        }
-        
-        if(mkdir(hosted.c_str(), S_IRWXU) == -1) {
-            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
+        if (create_user(UID, password, true) < 0) {
+            if (verbose)    printf("%s: new registration; failed to create user\n", UID);
             return "NOK";
         }
 
-        if(mkdir(bidded.c_str(), S_IRWXU) == -1) {
-            if (verbose)    printf("%s: new login; failed to create a user directory\n", UID);
-            return "NOK";
-        }
-
-        FILE* fd_user = fopen(user_file_name.c_str(), "w");
-        FILE* fd_pass = fopen(password_file_name.c_str(), "w");
-
-        fprintf(fd_pass, "%s", password);
-
-        fclose(fd_user);
-        fclose(fd_pass);
-
-        if (verbose)
-            printf("%s: new registration; successfully registered\n", UID);
+        if (verbose)    printf("%s: new registration; successfully registered\n", UID);
         return "REG";
     }
 }
@@ -373,7 +330,7 @@ string unregister(char arguments[]) {
     }
 }
 
-string open_auction(int fd) {           // ADD NLG RESPONSE !!!!!!!!
+string open_auction(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
         timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
 
@@ -422,13 +379,18 @@ string open_auction(int fd) {           // ADD NLG RESPONSE !!!!!!!!
 
     /* ARGUMENT PROCESSING */
     if ((start_value < 0) || (timeactive < 0)) {
-        if (verbose)    printf("%s: open; values should be positive or 0", asset_name);
+        if (verbose)    printf("%s: open; values should be positive or 0\n", asset_name);
         return "NOK";
     }
 
     if (n_auctions == MAX_AUCTIONS) {
-        if (verbose)    printf("%s: open; maximum number of auctions has been reached", asset_name);
+        if (verbose)    printf("%s: open; maximum number of auctions has been reached\n", asset_name);
         return "NOK";
+    }
+
+    if (is_user_logged_in(UID) < 0) {
+        if (verbose)    printf("%s: open; user %s is not logged in\n", asset_name, UID);
+        return "NLG";
     }
 
     /* COMMAND EXECUTION */
