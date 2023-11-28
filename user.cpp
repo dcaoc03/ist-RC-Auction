@@ -116,6 +116,8 @@ int main(int argc, char** argv) {
                 open_auction(command_buffer);
             else if (!strcmp(command_word, "close"))
                 close_auction(command_buffer);
+            else if (!strcmp(command_word, "myauctions") || !strcmp(command_word, "ma"))
+                myauctions();
             else if (!strcmp(command_word, "mybids") || !strcmp(command_word, "mb"))
                 mybids();
         }
@@ -287,6 +289,29 @@ void close_auction(char arguments[]) {
         else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while closing an auctiont\n");
     }
      
+}
+
+void myauctions() {
+    string message = "LMA " + user_ID + "\n";
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    string request_result = UDPclient(message2, sizeof(message2));
+    if (request_result == "ERR")
+        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+    else {             // If myauctions is successful
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK"))         printf("User has no ongoing auctions\n");
+        else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
+        else {
+            char auctions_list[BUFFER_SIZE];
+            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
+            printf("%s\n", auctions_list);
+        }
+    }
+
 }
 
 void mybids() {

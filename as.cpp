@@ -174,6 +174,10 @@ int main(int argc, char** argv) {
                 response = "RUR " + unregister(buffer) + "\n";
             }
 
+            else if (!strcmp(command_word, "LMA")) {
+                response = "RMA " + myauctions(buffer) + "\n";
+            }
+
             else if (!strcmp(command_word, "LMB")) {
                 response = "RMB " + mybids(buffer) + "\n";
             }
@@ -497,6 +501,61 @@ string close_auction(int fd) {
     return "OK"; 
 }
 
+string myauctions(char arguments[]) {
+    char UID[UID_SIZE+1];
+    sscanf(arguments, "%*s %s", UID);
+    string str_UID(UID);
+
+    /* COMMAND EXECUTION */
+
+    string dir_name = "./USERS/" + str_UID;
+    DIR* dir = opendir(dir_name.c_str());
+    if (dir) {
+        closedir(dir);
+        string login_file_name = dir_name + "/" + str_UID + "_login.txt";
+        if (access(login_file_name.c_str(), F_OK) == -1) {
+            if (verbose)
+                printf("%s: myauctions; user isn't logged in\n", UID);
+            return "NLG";
+        }
+        else {
+            string hosted_dir = dir_name + "/HOSTED";
+            DIR* hosted = opendir(hosted_dir.c_str());
+            list <string> hosted_list;
+            struct dirent* entry;
+            while ((entry = readdir(hosted)) != NULL) {
+                if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+                    hosted_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
+            }
+            closedir(hosted);
+            if (hosted_list.empty()) {
+                if (verbose)
+                    printf("%s: myauctions; user hasn't hosted any auction\n", UID);
+                return "NOK";
+            }
+            string auc_dir = "./AUCTIONS/";
+            string response = "";
+            for (list<string>::iterator it = hosted_list.begin(); it != hosted_list.end(); it++) {
+                string AID = *it;
+                int ongoing = is_auction_ongoing(AID);
+                if (ongoing == -1) {
+                    if (verbose)
+                        printf("%s: myauctions; failed to read %s auction file\n", UID, AID.c_str());
+                    return "ERR";
+                }
+                response += " " + AID + (ongoing ? " 1" : " 0");
+            }
+            return "OK" + response + "\n";
+        }
+    }
+    else {
+        if (verbose)
+            printf("%s: myauctions; failed to locate user in the database\n", UID);
+        return "ERR";
+    }
+
+}
+
 string mybids(char arguments[]) {
     char UID[UID_SIZE+1];
     sscanf(arguments, "%*s %s", UID);
@@ -539,12 +598,9 @@ string mybids(char arguments[]) {
                         printf("%s: mybids; failed to read %s auction file\n", UID, AID.c_str());
                     return "ERR";
                 }
-                if (it == bids_list.begin())
-                    response += AID + (ongoing ? " 1" : " 0");
-                else
-                    response += " " + AID + (ongoing ? " 1" : " 0");
+                response += " " + AID + (ongoing ? " 1" : " 0");
             }
-            return "OK " + response + "\n";
+            return "OK" + response + "\n";
         }
     }
     else {
