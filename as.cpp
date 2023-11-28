@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include<sys/wait.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -14,6 +14,7 @@
 
 #include <string>
 #include <cctype>
+#include <list>
 
 #include "as.h"
 #include "./common/constants.h"
@@ -171,6 +172,10 @@ int main(int argc, char** argv) {
             
             else if (!strcmp(command_word, "UNR")) {
                 response = "RUR " + unregister(buffer) + "\n";
+            }
+
+            else if (!strcmp(command_word, "LMB")) {
+                response = "RMB " + mybids(buffer) + "\n";
             }
             
             const char* response2 = response.c_str();
@@ -490,4 +495,61 @@ string close_auction(int fd) {
 
     if (verbose)    printf("Auction %s ended successfully\n", AID);
     return "OK"; 
+}
+
+string mybids(char arguments[]) {
+    char UID[UID_SIZE+1];
+    sscanf(arguments, "%*s %s", UID);
+    string str_UID(UID);
+
+    /* COMMAND EXECUTION */
+
+    string dir_name = "./USERS/" + str_UID;
+    DIR* dir = opendir(dir_name.c_str());
+    if (dir) {
+        closedir(dir);
+        string login_file_name = dir_name + "/" + str_UID + "_login.txt";
+        if (access(login_file_name.c_str(), F_OK) == -1) {
+            if (verbose)
+                printf("%s: logout; user isn't logged in\n", UID);
+            return "NLG";
+        }
+        else {
+            string bids_dir = dir_name + "/BIDDED";
+            DIR* bids = opendir(bids_dir.c_str());
+            list <string> bids_list;
+            struct dirent* entry;
+            while ((entry = readdir(bids)) != NULL) {
+                if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+                    bids_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
+            }
+            closedir(bids);
+            if (bids_list.empty()) {
+                if (verbose)
+                    printf("%s: mybids; user hasn't bidded in any auction\n", UID);
+                return "NOK";
+            }
+            string auc_dir = "./AUCTIONS/";
+            string response = "";
+            for (list<string>::iterator it = bids_list.begin(); it != bids_list.end(); it++) {
+                string AID = *it;
+                int ongoing = is_auction_ongoing(AID);
+                if (ongoing == -1) {
+                    if (verbose)
+                        printf("%s: mybids; failed to read %s auction file\n", UID, AID.c_str());
+                    return "ERR";
+                }
+                if (it == bids_list.begin())
+                    response += AID + (ongoing ? " 1" : " 0");
+                else
+                    response += " " + AID + (ongoing ? " 1" : " 0");
+            }
+            return "OK " + response + "\n";
+        }
+    }
+    else {
+        if (verbose)
+            printf("%s: mybids; failed to locate user in the database\n", UID);
+        return "ERR";
+    }
 }
