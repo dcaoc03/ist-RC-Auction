@@ -4,9 +4,6 @@ TODO:
 - Auction Server (AS)
   - Responses
 - User Application
-  - exit
-  - open
-  - close
   - myauctions/ma
   - mybids/mb
   - list/l
@@ -22,5 +19,8 @@ DONE:
   - login
   - logout
   - unregister
+  - exit
+  - open
+  - close
 
 Should we add a wait() when issuing a TCP request? That's a question for later :P

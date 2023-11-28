@@ -17,6 +17,8 @@
 
 #include "as.h"
 #include "./common/constants.h"
+#include "./common/utils.h"
+#include "./common/database_utils.h"
 
 using namespace std;
 
@@ -126,7 +128,7 @@ int main(int argc, char** argv) {
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
-                if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false) < 0)    exit(1);
+                if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
 
                 /* REQUEST PROCESSING */
                 string response;
@@ -134,6 +136,11 @@ int main(int argc, char** argv) {
                 if (!strcmp(command_word, "OPA")) {
                     string status = open_auction(newfd);
                     response = "ROA " + status + "\n";
+                }
+
+                if (!strcmp(command_word, "CLS")) {
+                    string status = close_auction(newfd);
+                    response = "RCL " + status + "\n";
                 }
                 
                 const char* response2 = response.c_str();
@@ -371,13 +378,13 @@ string open_auction(int fd) {           // ADD NLG RESPONSE !!!!!!!!
         timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
 
     // Reading the parameters
-    if (byte_reading(fd, UID, UID_SIZE, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false) == -1)   return "ERR";
-    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true) == -1)   return "ERR";
-    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true) == -1)   return "ERR";
-    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true) == -1)   return "ERR";
-    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true) == -1)   return "ERR";
-    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true) == -1)   return "ERR";
+    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
     
     // Converting the numeric parameters
     int start_value = atoi(start_value_str);
@@ -480,4 +487,45 @@ string open_auction(int fd) {           // ADD NLG RESPONSE !!!!!!!!
     fclose(fd_start_file);
     if (verbose)    printf("%s: new auction; new auction successfully created\n", AID.c_str());
     return "OK " + AID;
+}
+
+string close_auction(int fd) {
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1];
+    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+
+    // Check arguments
+    if (is_user_logged_in(UID) < 0) {
+        if (verbose)    printf("ERROR: user %s is not logged in\n", UID);
+        return "NLG";
+    }
+
+    if (!does_auction_exist(AID)) {
+        if (verbose)    printf("ERROR: auction %s does not exist\n", AID);
+        return "EAU";
+    }
+
+    if (!does_user_host_auction(AID, UID)) {
+        if (verbose)    printf("Error: user %s is not the owner of auction %s, therefore can't close it\n", UID, AID);
+        return "EOW";
+    }
+
+    int auction_status = is_auction_ongoing(AID);
+    if (auction_status == -1) {
+        if (verbose)    printf("ERROR: failed to read %s auction file\n", AID);
+        return "ERR";
+    }
+    else if (!auction_status) {
+        if (verbose)    printf("Auction %s has already ended\n", AID);
+        return "END";
+    }
+
+    if (create_auction_end_file(AID) == -1) {
+        if (verbose)    printf("ERROR: failed to create auction %s end file\n", AID);
+        return "ERR";
+    }
+
+    if (verbose)    printf("Auction %s ended successfully\n", AID);
+    return "OK"; 
 }

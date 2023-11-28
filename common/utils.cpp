@@ -5,7 +5,7 @@
 
 #include "utils.h"
 
-int byte_reading(int fd, char word[], int word_len, bool can_be_smaller) {
+int byte_reading(int fd, char word[], int word_len, bool can_be_smaller, bool is_last_word) {
     char read_char;
     int i;
     for (i=0; i < word_len+1; i++) {
@@ -13,7 +13,11 @@ int byte_reading(int fd, char word[], int word_len, bool can_be_smaller) {
             printf("ERROR: failed to read from socket\n");
             return -1;
         }
-        if (read_char == ' ') {
+        if (is_last_word && (i >= word_len) && (read_char != '\n')) {
+            printf("ERROR: badly formatted message\n");
+            return -1;
+        }
+        if ((read_char == ' ') || (read_char == '\n')) {
             if (i == 0)  {
                 printf("ERROR: badly formatted message\n");
                 return -1;
