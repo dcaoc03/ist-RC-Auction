@@ -20,6 +20,7 @@
 #include "./common/constants.h"
 #include "./common/utils.h"
 #include "./common/database_utils.h"
+#include "./common/stdout_messages.h"
 
 using namespace std;
 
@@ -76,19 +77,15 @@ int main(int argc, char** argv) {
     hints_tcp.ai_socktype=SOCK_STREAM;
     hints_tcp.ai_flags=AI_PASSIVE;
 
-    if (getaddrinfo(NULL, PORT, &hints_tcp, &res_tcp) != 0)
-        exit(1);
+    if (getaddrinfo(NULL, PORT, &hints_tcp, &res_tcp) != 0)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
 
     fd_tcp = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd_tcp == -1)
-        exit(1);
+    if (fd_tcp == -1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
 
     n = bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen);
-    if (n==-1)
-        exit(1);
+    if (n==-1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
     
-    if (listen(fd_tcp, 5) == -1)
-        exit(1);
+    if (listen(fd_tcp, 5) == -1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
     
     /* CREATE UDP SOCKET */
 
@@ -97,16 +94,13 @@ int main(int argc, char** argv) {
     hints_udp.ai_socktype=SOCK_DGRAM;
     hints_udp.ai_flags=AI_PASSIVE;
 
-    if (getaddrinfo(NULL, PORT, &hints_udp, &res_udp) != 0)
-        exit(1);
+    if (getaddrinfo(NULL, PORT, &hints_udp, &res_udp) != 0)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
 
     fd_udp=socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd_udp == -1)
-        exit(1);
+    if (fd_udp == -1)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
 
     n=bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen);
-    if (n == -1)
-        exit(1);
+    if (n == -1)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
 
     /* SET UP THE FDSET */
     FD_ZERO(&fdset);
@@ -118,14 +112,16 @@ int main(int argc, char** argv) {
         select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
     
         if ((n_auctions = count_auctions()) == -1) {
-            if (verbose)    printf("Database error: directory \"AUCTIONS\" not found");
+            if (verbose)    printf(AUCTIONS_NOT_FOUND_ERROR);
             return 1;
         }
 
         if (FD_ISSET(fd_tcp, &fdset)) {
             addrlen_tcp = sizeof(addr_tcp);
-            if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr_tcp, &addrlen_tcp)) == -1)
+            if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr_tcp, &addrlen_tcp)) == -1) {
+                printf(SOCKET_CREATION_ERROR, "TCP");
                 exit(1);
+            }
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
@@ -145,8 +141,10 @@ int main(int argc, char** argv) {
                 }
                 
                 const char* response2 = response.c_str();
-                if (write(newfd, (const char*)response2, strlen(response2)) < 0)
-                    exit(1); 
+                if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
+                    printf(SOCKET_WRITING_ERROR, "TCP");
+                    exit(1);
+                }
                 close(newfd); 
                 exit(0); 
             }
@@ -185,8 +183,10 @@ int main(int argc, char** argv) {
             const char* response2 = response.c_str();
 
             n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr_udp, addrlen_udp);
-            if(n==-1)
+            if (n==-1) {
+                printf(SOCKET_WRITING_ERROR, "TCP");
                 exit(1);
+            }
         } 
     }
 
@@ -203,16 +203,16 @@ string login(char arguments[]) {
     /* ARGUMENT PROCESSING*/
 
     if ((strlen(UID) != 6) || (strlen(password) != 8)) {
-        if (verbose)        printf("%s: new login; unsuccessful login, arguments with wrong size\n", UID);
+        if (verbose)        printf(UNSUCCESSFUL_LOGIN, UID, ARGUMENTS_WRONG_SIZE_ERROR);
         return "ERR";
     }
     for (int i=0; i < 8; i++) {
         if ((i < 6) && !isdigit(UID[i])) {
-            if (verbose)    printf("%s: new login; unsuccessful login, UID must be six digits\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_LOGIN, UID, UID_DIGITS_ERROR);
             return "ERR";
         }
         if (!isdigit(password[i]) && (isalpha(password[i]) == 0)) {
-            if (verbose)    printf("%s: new login; unsuccessful login, password must be eight alphanumeric digits\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_LOGIN, UID, PASSWORD_DIGITS_ERROR);
             return "ERR";
         }
     }
@@ -228,24 +228,24 @@ string login(char arguments[]) {
         if (password_file_exists == 0) {
             int password_check = user_password_check(UID, password);
             if (password_check == 1) {
-                if (verbose)    printf("%s: new registration; successful login\n", UID);
+                if (verbose)    printf(SUCCESSFUL_LOGIN, UID);
                 return "OK";
             }
             else if (password_check == 0) {
-                if (verbose)    printf("%s: new registration; wrong password\n", UID);
+                if (verbose)    printf(UNSUCCESSFUL_LOGIN, UID, WRONG_PASSWORD_ERROR);
                 return "NOK";
             }
             else if (password_check == -1) {
-                if (verbose)    printf("%s: new registration; something wrong happened while checking password\n", UID);
+                if (verbose)    printf(UNSUCCESSFUL_LOGIN, UID, GENERIC_PASSWORD_ERROR);
                 return "ERR";
             }
         } else if (password_file_exists == -1) {
             if (create_user(UID, password, false) < 0) {
-                if (verbose)    printf("%s: new registration; failed to create user\n", UID);
+                if (verbose)    printf(UNSUCCESSFUL_REGISTRATION, UID);
                 return "NOK";
             }
 
-            if (verbose)        printf("%s: new login; successful registration\n", UID);
+            if (verbose)        printf(SUCCESSFUL_REGISTRATION, UID);
             return "OK";
         }
 
@@ -255,11 +255,11 @@ string login(char arguments[]) {
     // User does not exist -> new registration
     else {
         if (create_user(UID, password, true) < 0) {
-            if (verbose)    printf("%s: new registration; failed to create user\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_REGISTRATION, UID);
             return "NOK";
         }
 
-        if (verbose)    printf("%s: new registration; successfully registered\n", UID);
+        if (verbose)    printf(SUCCESSFUL_REGISTRATION, UID);
         return "REG";
     }
 }
@@ -276,20 +276,20 @@ string logout(char arguments[]) {
         closedir(dir);
         int was_logout_successful = logout_user(UID);
         if (was_logout_successful == 1) {
-            if (verbose)    printf("%s: logout; user is not logged in\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_LOGOUT, UID, USER_NOT_LOGGED_IN_ERROR);
             return "NOK";
         }
         else if (was_logout_successful == 0) {
-            if (verbose)    printf("%s: logout; user logged out succesfully\n", UID);
+            if (verbose)    printf(SUCCESSFUL_LOGOUT, UID);
             return "OK";
         }
         if (was_logout_successful == -1) {
-            if (verbose)    printf("%s: logout; error while loggin out user\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_LOGOUT, UID, GENERIC_LOGOUT_ERROR);
             return "ERR";
         }
     }
     else {
-        if (verbose)    printf("%s: logout; failed to locate user in the database\n", UID);
+        if (verbose)    printf(UNSUCCESSFUL_LOGOUT, UID, USER_NOT_REGISTERED_ERROR);
         return "UNR";
     }
     return "NOK";
@@ -306,22 +306,22 @@ string unregister(char arguments[]) {
     if (dir) {
         closedir(dir);
         if (is_user_logged_in(UID) == -1) {
-            if (verbose)    printf("%s: unregister; user isn't logged in\n", UID);
+            if (verbose)    printf(UNSUCCESSFUL_UNREGISTRATION, UID, USER_NOT_LOGGED_IN_ERROR);
             return "NOK";
         }
         else {
             if (unregister_user(UID) != 0) {
-                if (verbose)    printf("%s: unregister; failed to unregister\n", UID);
+                if (verbose)    printf(UNSUCCESSFUL_UNREGISTRATION, UID, GENERIC_UNREGISTRATION_ERROR);
                 return "NOK";
             }
             else  {
-                if (verbose)    printf("%s: unregister; successsful unregistration\n", UID);
+                if (verbose)    printf(SUCCESSFUL_UNREGISTRATION, UID);
                 return "OK";
             }
         }
     }
     else  {
-        if (verbose)    printf("%s: logout; failed to locate user in the database\n", UID);
+        if (verbose)    printf(UNSUCCESSFUL_UNREGISTRATION, UID, USER_NOT_REGISTERED_ERROR);
         return "UNR";
     }
 }
@@ -354,7 +354,7 @@ string open_auction(int fd) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
         n = read(fd, image_buffer, n);
         if (n < 0) {
-            printf("ERROR: failed to read from socket\n");
+            printf(SOCKET_READING_ERROR, "TCP");
             return "ERR";
         }
         memcpy(image+bytes_read, image_buffer, n);
@@ -365,27 +365,27 @@ string open_auction(int fd) {
     char read_char;
     n = read(fd, &read_char, 1);
     if (n < 0) {
-        printf("ERROR: failed to read from socket\n");
+        printf(SOCKET_READING_ERROR, "TCP");
         return "ERR";
     }
     if (read_char != '\n') {
-        printf("ERROR: badly formatted message\n");
+        printf(BADLY_FORMATTED_MESSAGE);
         return "ERR";
     }
 
     /* ARGUMENT PROCESSING */
     if ((start_value < 0) || (timeactive < 0)) {
-        if (verbose)    printf("%s: open; values should be positive or 0\n", asset_name);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, NUMERIC_VALUES_ERROR);
         return "NOK";
     }
 
     if (n_auctions == MAX_AUCTIONS) {
-        if (verbose)    printf("%s: open; maximum number of auctions has been reached\n", asset_name);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, MAX_NUM_AUCTIONS_ERROR);
         return "NOK";
     }
 
     if (is_user_logged_in(UID) < 0) {
-        if (verbose)    printf("%s: open; user %s is not logged in\n", asset_name, UID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, USER_NOT_LOGGED_IN_ERROR);
         return "NLG";
     }
 
@@ -455,36 +455,36 @@ string close_auction(int fd) {
 
     // Check arguments
     if (is_user_logged_in(UID) < 0) {
-        if (verbose)    printf("ERROR: user %s is not logged in\n", UID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, USER_NOT_LOGGED_IN_ERROR);
         return "NLG";
     }
 
     if (!does_auction_exist(AID)) {
-        if (verbose)    printf("ERROR: auction %s does not exist\n", AID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_NOT_FOUND_ERROR);
         return "EAU";
     }
 
     if (!does_user_host_auction(AID, UID)) {
-        if (verbose)    printf("Error: user %s is not the owner of auction %s, therefore can't close it\n", UID, AID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_OWNER_ERROR);
         return "EOW";
     }
 
     int auction_status = is_auction_ongoing(AID);
     if (auction_status == -1) {
-        if (verbose)    printf("ERROR: failed to read %s auction file\n", AID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
         return "ERR";
     }
     else if (!auction_status) {
-        if (verbose)    printf("Auction %s has already ended\n", AID);
+        if (verbose)    printf(AUCTION_ALREADY_CLOSED, AID);
         return "END";
     }
 
     if (create_auction_end_file(AID) == -1) {
-        if (verbose)    printf("ERROR: failed to create auction %s end file\n", AID);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
         return "ERR";
     }
 
-    if (verbose)    printf("Auction %s ended successfully\n", AID);
+    if (verbose)    printf(SUCCESSFUL_AUCTION_CLOSING, AID);
     return "OK"; 
 }
 
