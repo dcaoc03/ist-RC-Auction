@@ -94,6 +94,7 @@ int is_auction_ongoing(string AID) {
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
 
+// USER MANIPULATION FUNCTIONS
 int create_user_dirs(string user_id) {
     string dir_name = "./USERS/" + user_id;
     string hosted = dir_name + "/HOSTED";
@@ -131,6 +132,31 @@ int create_user(string user_id, char password[], bool create_directories) {
 
     return 0;
 }
+
+// Returns 0 if successful, 1 if unsuccessful, -1 if error
+int logout_user(string user_id) {    
+    string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
+    if (access(login_file_name.c_str(), F_OK) == -1) 
+        return 1;
+    else {
+        if (remove(login_file_name.c_str()) != 0)
+            return -1;
+        else
+            return 0;
+    }
+}
+
+int unregister_user(string user_id) {
+    string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
+    string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";
+    
+    if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0) 
+        return -1;
+    
+    return 0;
+}
+
+// AUCTION MANIPULATION FUNCTIONS
 
 // Mode 's' to get start_fulltime and 'e' to get the predicted_ending_time, returns -1 in case of fscanf error
 time_t get_auction_start_and_end_fulltime(string AID, char mode) {

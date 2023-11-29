@@ -271,34 +271,28 @@ string logout(char arguments[]) {
 
     /* COMMAND EXECUTION */
 
-    string dir_name = "./USERS/" + str_UID;
-    DIR* dir = opendir(dir_name.c_str());
+    DIR* dir = does_user_exist(UID);
     if (dir) {
         closedir(dir);
-        string login_file_name = dir_name + "/" + str_UID + "_login.txt";
-        if (access(login_file_name.c_str(), F_OK) == -1) {
-            if (verbose)
-                printf("%s: logout; user isn't logged in\n", UID);
+        int was_logout_successful = logout_user(UID);
+        if (was_logout_successful == 1) {
+            if (verbose)    printf("%s: logout; user is not logged in\n", UID);
             return "NOK";
         }
-        else {
-            if (remove(login_file_name.c_str()) != 0) {
-                if (verbose)
-                    printf("%s: logout; failed to remove user\n", UID);
-                return "NOK";
-            }
-            else {
-                if (verbose)
-                    printf("%s: logout; logout successful\n", UID);
-                return "OK";
-            }
+        else if (was_logout_successful == 0) {
+            if (verbose)    printf("%s: logout; user logged out succesfully\n", UID);
+            return "OK";
+        }
+        if (was_logout_successful == -1) {
+            if (verbose)    printf("%s: logout; error while loggin out user\n", UID);
+            return "ERR";
         }
     }
     else {
-        if (verbose)
-            printf("%s: logout; failed to locate user in the database\n", UID);
+        if (verbose)    printf("%s: logout; failed to locate user in the database\n", UID);
         return "UNR";
     }
+    return "NOK";
 }
 
 string unregister(char arguments[]) {
@@ -308,33 +302,26 @@ string unregister(char arguments[]) {
 
     /* COMMAND EXECUTION */
 
-    string dir_name = "./USERS/" + str_UID;
-    DIR* dir = opendir(dir_name.c_str());
+    DIR* dir = does_user_exist(UID);
     if (dir) {
         closedir(dir);
-        string login_file_name = dir_name + "/" + str_UID + "_login.txt";
-        string password_file_name = dir_name + "/" + str_UID + "_password.txt";
-        if (access(login_file_name.c_str(), F_OK) == -1) {
-            if (verbose)
-                printf("%s: unregister; user isn't logged in\n", UID);
+        if (is_user_logged_in(UID) == -1) {
+            if (verbose)    printf("%s: unregister; user isn't logged in\n", UID);
             return "NOK";
         }
         else {
-            if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0) {
-                if (verbose)
-                    printf("%s: unregister; failed to unregister\n", UID);
+            if (unregister_user(UID) != 0) {
+                if (verbose)    printf("%s: unregister; failed to unregister\n", UID);
                 return "NOK";
             }
             else  {
-                if (verbose)
-                    printf("%s: unregister; successsful unregistration\n", UID);
+                if (verbose)    printf("%s: unregister; successsful unregistration\n", UID);
                 return "OK";
             }
         }
     }
     else  {
-        if (verbose)
-            printf("%s: logout; failed to locate user in the database\n", UID);
+        if (verbose)    printf("%s: logout; failed to locate user in the database\n", UID);
         return "UNR";
     }
 }
@@ -545,7 +532,7 @@ string myauctions(char arguments[]) {
                 }
                 response += " " + AID + (ongoing ? " 1" : " 0");
             }
-            return "OK" + response + "\n";
+            return "OK" + response;
         }
     }
     else {
@@ -600,7 +587,7 @@ string mybids(char arguments[]) {
                 }
                 response += " " + AID + (ongoing ? " 1" : " 0");
             }
-            return "OK" + response + "\n";
+            return "OK" + response;
         }
     }
     else {

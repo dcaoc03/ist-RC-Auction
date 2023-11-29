@@ -12,6 +12,8 @@ int is_auction_ongoing(std::string AID);
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
 int create_user(std::string user_id, char password[],bool create_directories);
+int logout_user(std::string user_id);
+int unregister_user(std::string user_id);
 time_t get_auction_start_and_end_fulltime(std::string AID, char mode);
 int create_auction_end_file(std::string AID);
 
