@@ -397,53 +397,19 @@ string open_auction(int fd) {
     string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
 
     // Create .txt on User directory
-    char dir_name[BUFFER_SIZE];
-    strcpy(dir_name, "./USERS/");
-    strcat(dir_name, UID);
-
-    string hosted_file = string(dir_name) + "/HOSTED/" + AID + ".txt";
-    FILE* fd_hosted = fopen(hosted_file.c_str(), "w");
-    fclose(fd_hosted);
-
-    // Create directory in AUCTIONS
-    string auctions_dir = "./AUCTIONS/" + AID;
-    string bids_dir = auctions_dir + "/BIDS";
-    if (mkdir(auctions_dir.c_str(), S_IRWXU) == -1) {
-        if (verbose)    printf("%s: new auction; failed to create a auction directory\n", AID.c_str());
-        return "NOK";
-    }
-    if (mkdir(bids_dir.c_str(), S_IRWXU) == -1) {
-        if (verbose)    printf("%s: new auction; failed to create a auction directory\n", AID.c_str());
-        return "NOK";
+    if (create_auction_dirs(AID, UID) == -1) {
+        printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
+        return "ERR";
     }
 
     // Create image
-    string image_name = auctions_dir + "/" + file_name;
-    FILE* fd_image = fopen(image_name.c_str(), "w");
-    bytes_read = 0;
-    while (bytes_read < file_size) {
-        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
-        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-        memcpy(image_buffer, image+bytes_read, n);
-        n = fwrite(image_buffer, 1, n, fd_image);
-        bytes_read += n;
-    }
-    fclose(fd_image);
+    copy_image(AID, file_name, file_size, image_buffer, image);
     free(image);
 
     // Create Start file
-    string start_file_name = auctions_dir + "/START_"+ AID +".txt";
-    FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
-    string start_file_content = string(UID) + " " + asset_name + " " + file_name + " " + to_string(start_value) + " " +
-        to_string(timeactive) + " ";
-    fprintf(fd_start_file, "%s", start_file_content.c_str());
-    time_t start_fulltime = time(NULL);
-    struct tm *start_date_time = localtime(&start_fulltime);
-    fprintf(fd_start_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", start_date_time->tm_year+1900, start_date_time->tm_mon + 1, start_date_time->tm_mday,
-        start_date_time->tm_hour, start_date_time->tm_min, start_date_time->tm_sec, start_fulltime);
-
-    fclose(fd_start_file);
-    if (verbose)    printf("%s: new auction; new auction successfully created\n", AID.c_str());
+    create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
+    
+    if (verbose)    printf(SUCCESSFUL_AUCTION_OPENING, asset_name, AID.c_str());
     return "OK " + AID;
 }
 

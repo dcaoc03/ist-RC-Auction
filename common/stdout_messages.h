@@ -36,14 +36,15 @@
 #define GENERIC_UNREGISTRATION_ERROR "something wrong happened while unregistrating user"
 
 // Open Auction Function
-#define SUCCESSFUL_AUCTION_OPENING "Open Auction %s: auction launched successfully\n"
+#define SUCCESSFUL_AUCTION_OPENING "Open Auction %s: auction %s launched successfully\n"
 #define UNSUCCESSFUL_AUCTION_OPENING "Open Auction %s: auction failed to launch; %s\n"
 
 #define NUMERIC_VALUES_ERROR "numeric values must be positive or 0"
 #define MAX_NUM_AUCTIONS_ERROR "maximum number of auctions has been reached"
+#define AUCTION_DIRS_ERROR "something went wrong while creating the auction's directories"
 
 // Close Auction Function
-#define SUCCESSFUL_AUCTION_CLOSING "Close Auction %s: auction launched successfully\n"
+#define SUCCESSFUL_AUCTION_CLOSING "Close Auction %s: auction ended successfully\n"
 #define UNSUCCESSFUL_AUCTION_CLOSING "Close Auction %s: auction failed to close; %s\n"
 #define AUCTION_ALREADY_CLOSED "Close Auction %s: auction has already ended\n"
 

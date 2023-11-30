@@ -175,6 +175,54 @@ time_t get_auction_start_and_end_fulltime(string AID, char mode) {
         return start_fulltime+duration;
 }
 
+int create_auction_dirs(string AID, string UID) {
+    // Create .txt on User directory
+    string owner_dir_name = "./USERS/" + string(UID);
+
+    string hosted_file = owner_dir_name + "/HOSTED/" + AID + ".txt";
+    FILE* fd_hosted = fopen(hosted_file.c_str(), "w");
+    fclose(fd_hosted);
+
+    // Create directory in AUCTIONS
+    string auctions_dir = "./AUCTIONS/" + AID;
+    string bids_dir = auctions_dir + "/BIDS";
+    if (mkdir(auctions_dir.c_str(), S_IRWXU) == -1) {
+        return -1;
+    }
+    if (mkdir(bids_dir.c_str(), S_IRWXU) == -1) {
+        return -1;
+    }
+    return 0;
+}
+
+void copy_image(string AID, string file_name, int file_size, char* image_buffer, char* image) {
+    string image_name = "./AUCTIONS/" + AID + "/" + file_name;
+    FILE* fd_image = fopen(image_name.c_str(), "w");
+    int bytes_read = 0, n;
+    while (bytes_read < file_size) {
+        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        memcpy(image_buffer, image+bytes_read, n);
+        n = fwrite(image_buffer, 1, n, fd_image);
+        bytes_read += n;
+    }
+    fclose(fd_image);
+}
+
+void create_auction_start_file(string AID, string UID, string asset_name, string file_name, int start_value, int timeactive) {
+    string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
+    FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
+    string start_file_content = string(UID) + " " + asset_name + " " + file_name + " " + to_string(start_value) + " " +
+        to_string(timeactive) + " ";
+    fprintf(fd_start_file, "%s", start_file_content.c_str());
+    time_t start_fulltime = time(NULL);
+    struct tm *start_date_time = localtime(&start_fulltime);
+    fprintf(fd_start_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", start_date_time->tm_year+1900, start_date_time->tm_mon + 1, start_date_time->tm_mday,
+        start_date_time->tm_hour, start_date_time->tm_min, start_date_time->tm_sec, start_fulltime);
+
+    fclose(fd_start_file);
+}
+
 // Returns 0 if succsess, -1 in case of error
 int create_auction_end_file(string AID) {
     string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
