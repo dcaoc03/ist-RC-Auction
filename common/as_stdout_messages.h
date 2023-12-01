@@ -1,7 +1,5 @@
-#ifndef STDOUT_MESSAGES
-#define STDOUT_MESSAGES
-
-// AS ERROR MESSAGES
+#ifndef AS_STDOUT_MESSAGES
+#define AS_STDOUT_MESSAGES
 
 // Main Function
 #define SOCKET_CREATION_ERROR "SOCKET ERROR: failed to initialize %s socket\n"

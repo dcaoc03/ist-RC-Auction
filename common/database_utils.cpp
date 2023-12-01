@@ -75,22 +75,18 @@ int does_user_host_auction(string AID, string UID) {
 
 // Returns 1 if is ongoing, 0 otherwise, -1 if error
 int is_auction_ongoing(string AID) {
+    string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
+    if (access(auction_end_file.c_str(), F_OK) == 0)
+        return 0;
+    
     time_t predicted_ending_time = get_auction_start_and_end_fulltime(AID, 'e');
     if (predicted_ending_time == -1)
         return -1;
     time_t current_time = time(NULL);
     if (predicted_ending_time > current_time)
         return 1;
-    else {
-        string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
-        if (access(auction_end_file.c_str(), F_OK) == 0)
-            return 0;
-        else {
-            create_auction_end_file(AID);
-            return 0;
-        }
-
-    }
+    else 
+        return 0;
 }
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */

@@ -13,6 +13,7 @@
 
 #include "user.h"
 #include "./common/constants.h"
+#include "./common/user_stdout_messages.h"
 
 using namespace std;
 
@@ -77,7 +78,7 @@ int setup_UDP_socket() {
     hints_UDP.ai_family = AF_INET;
     hints_UDP.ai_socktype = SOCK_DGRAM;
 
-    if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints_UDP, &res_UDP)) != 0)       // CHECK THE NAME/IP ADDRESS!!!!
+    if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints_UDP, &res_UDP)) != 0) 
         return -1;
     return 0;
 }
@@ -91,8 +92,10 @@ int main(int argc, char** argv) {
     if (argc > 1)
         process_arguments(argc, argv);
     
-    if (setup_UDP_socket() == -1)
+    if (setup_UDP_socket() == -1) {
+        printf(SOCKET_CREATION_ERROR, "UDP");
         return 1;
+    }
 
     while (!end) {
         char command_buffer[BUFFER_SIZE], command_word[20];
@@ -106,11 +109,11 @@ int main(int argc, char** argv) {
             else if (!strcmp(command_word, "exit"))
                 exit(&end);
             else 
-                printf("Please login first\n");
+                printf(LOGIN_FIRST);
         }
         else {
             if (!strcmp(command_word, "login"))
-                printf("User already logged in\n");
+                printf(ALREADY_LOGGED_IN);
             else if (!strcmp(command_word, "logout"))
                 logout();
             else if (!strcmp(command_word, "unregister"))
@@ -145,14 +148,14 @@ void login(char arguments[]) {
 
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");
+        return;
     else {            // If login is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "OK"))          {printf("User successfully logged in\n"); user_ID = UID; user_password = password;}
-        else if (!strcmp(response, "NOK"))    printf("User failed to log in\n"); 
-        else if (!strcmp(response, "REG"))    {printf("New user successfully reggistered\n"); user_ID = UID; user_password = password;}
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while logging in\n");
+        if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_LOGIN_USER); user_ID = UID; user_password = password;}
+        else if (!strcmp(response, "NOK"))    printf(UNSUCCESSFUL_LOGIN_USER); 
+        else if (!strcmp(response, "REG"))    {printf(SUCCESSFUL_RESGISTRATION_USER); user_ID = UID; user_password = password;}
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_LOGIN_ERROR_USER);
     }
 }
 
@@ -162,14 +165,14 @@ void logout() {
 
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {             // If logout is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "OK"))          {printf("User successfully logged out\n"); user_ID = ""; user_password = "";}
-        else if (!strcmp(response, "NOK"))    printf("User failed to log out\n");
-        else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while logging out\n");
+        if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_LOGOUT_USER); user_ID = ""; user_password = "";}
+        else if (!strcmp(response, "NOK"))    printf(UNSUCCESSFUL_LOGOUT_USER);
+        else if (!strcmp(response, "UNR"))    printf(USER_NOT_REGISTERED_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_LOGOUT_ERROR_USER);
     }
 }
 
@@ -179,20 +182,20 @@ void unregister() {
 
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {             // If unregistration is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "OK"))          {printf("User successfully unregistered\n"); user_ID = ""; user_password = "";}
-        else if (!strcmp(response, "NOK"))    printf("User failed to unregister\n");
-        else if (!strcmp(response, "UNR"))    printf("User not registered in the database\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while unregistering the user\n");
+        if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_UNREGISTRATION_USER); user_ID = ""; user_password = "";}
+        else if (!strcmp(response, "NOK"))    printf(UNSUCCESSFUL_UNREGISTRATION_USER);
+        else if (!strcmp(response, "UNR"))    printf(USER_NOT_REGISTERED_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_UNREGISTRATION_ERROR_USER);
     }
 }
 
 void exit(int* ending) {
     if (user_ID != "") {
-        printf("Please, execute the logout command before exiting\n");
+        printf(EXIT_BEFORE_LOGOUT_ERROR);
         return;
     }
     else{
@@ -201,6 +204,7 @@ void exit(int* ending) {
     }
 }
 
+// TODO: put this function in utils.c
 int image_processing(char image_name[], string* message) {
     // Get image size
     FILE* jpg_pointer = fopen(image_name, "rb");
@@ -234,11 +238,11 @@ void open_auction(char arguments[]) {
     sscanf(arguments, "%*s %s %s %d %d", asset_name, file_name, &start_value, &timeactive);
 
     if (strlen(asset_name) > ASSET_NAME_SIZE) {
-        printf("ERROR: file asset_name exceeds %d alphanumerical characters\n", ASSET_NAME_SIZE); 
+        printf(ARGUMENTS_SIZE_ERROR, "asset_name", ASSET_NAME_SIZE); 
         return;
     }
     if (strlen(file_name) > FILE_NAME_SIZE) {
-        printf("ERROR: file asset_name exceeds %d alphanumerical characters\n", FILE_NAME_SIZE); 
+        printf(ARGUMENTS_SIZE_ERROR, "file_name", FILE_NAME_SIZE); 
         return;
     }
 
@@ -246,25 +250,25 @@ void open_auction(char arguments[]) {
         + " " + file_name;
 
     if ((jpg_fd = image_processing(file_name, &message)) == -1) {
-        printf("ERROR: failed to open jpg\n"); 
+        printf(IMAGE_PROCESSING_ERROR); 
         return;
     }
 
     const char* message2 = message.c_str();
     string request_result = TCPclient(message2, strlen(message2), &jpg_fd);
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");
+        return;
     else {
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK")) {
             char AID[COMMAND_WORD_SIZE+1];
             sscanf(request_result.c_str(), "%*s %*s %s", AID);
-            printf("Auction %s successfully started\n", AID); 
+            printf(SUCCESSFUL_AUCTION_OPENING_USER, AID); 
         }
-        else if (!strcmp(response, "NOK"))    printf("Auction failed to start\n");
-        else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while creating an auction\n");
+        else if (!strcmp(response, "NOK"))    printf(UNSUCCESSFUL_AUCTION_OPENING_USER);
+        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_AUCTION_OPENING_ERROR_USER);
     }
 
     close(jpg_fd);
@@ -280,16 +284,16 @@ void close_auction(char arguments[]) {
 
     string request_result = TCPclient(message2, sizeof(message2), NULL);
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {
         char response[COMMAND_WORD_SIZE+1];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "OK"))         printf("Auction %s successfully closed\n", AID);
-        if (!strcmp(response, "NLG"))        printf("Used user not logged in\n");
-        if (!strcmp(response, "EAU"))        printf("Auction %s does not exist\n", AID);
-        if (!strcmp(response, "EOW"))        printf("Auction %s is not owned by user %s\n", AID, user_ID.c_str());
-        if (!strcmp(response, "END"))        printf("Auction %s has already ended\n", AID);
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something wrong happened while closing an auctiont\n");
+        if (!strcmp(response, "OK"))         printf(SUCCESSFUL_AUCTION_CLOSING_USER, AID);
+        if (!strcmp(response, "NLG"))        printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        if (!strcmp(response, "EAU"))        printf(USER_NOT_REGISTERED_ERROR_USER);
+        if (!strcmp(response, "EOW"))        printf(UNALLOWED_AUCTION_CLOSING_USER, AID, user_ID.c_str());
+        if (!strcmp(response, "END"))        printf(AUCTION_ALREADY_CLOSED_ERROR, AID);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_AUCTION_OPENING_ERROR_USER);
     }
      
 }
@@ -301,13 +305,13 @@ void myauctions() {
 
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {             // If myauctions is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf("User has no ongoing auctions\n");
-        else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
+        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR_USER);
+        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_AUCTIONS_ERROR_USER);
         else {
             char auctions_list[BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
@@ -324,13 +328,13 @@ void mybids() {
 
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {             // If mybids is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf("User has no ongoing bids\n");
-        else if (!strcmp(response, "NLG"))    printf("User is not logged in\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the bids\n");
+        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_BIDS_ERROR_USER);
+        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_BIDS_ERROR_USER);
         else {
             char auctions_list[BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
@@ -348,12 +352,16 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     struct sockaddr_in addr;
     char buffer[128];
     
-    if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1)
+    if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1) {
+        printf(SOCKET_WRITING_ERROR, "UDP");
         return "ERR";
+    }
     
     addrlen = sizeof(addr);
-    if ((n = recvfrom(fd_UDP, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1)
+    if ((n = recvfrom(fd_UDP, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1) {
+        printf(SOCKET_READING_ERROR, "UDP");
         return "ERR";
+    }
 
     return buffer;
 }
@@ -368,18 +376,18 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
     char buffer[128];
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
-    if (fd == -1)   {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
+    if (fd == -1)   {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
     n = getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints, &res);
-    if (n != 0)     {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
+    if (n != 0)     {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
     n = connect(fd, res->ai_addr, res->ai_addrlen);
-    if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
+    if (n == -1)    {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
     n = write(fd, message, strlen(message));
-    if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
+    if (n == -1)    {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
 
     // Sending the Image
     if (image_fd != NULL) {
@@ -389,9 +397,9 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
         while (bytes_read < image_size) {
             memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
             n = read(*image_fd, image_buffer, IMAGE_BUFFER_SIZE);
-            if (n<0)    {printf("ERROR: failed to read from socket\n");  return "ERR";}
+            if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR);  return "ERR";}
             n = write(fd, image_buffer, n);
-            if (n<0)    {printf("ERROR: failed to read from socket\n");  return "ERR";}
+            if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP");  return "ERR";}
             bytes_read += n;
         }
         char new_line_char = '\n';
@@ -400,8 +408,7 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
 
     // Await the answer
     n = read(fd, buffer, 128);
-    if (n == -1)
-        return "ERR";
+    if (n == -1) {printf(SOCKET_READING_ERROR, "TCP");  return "ERR";}
 
     freeaddrinfo(res);
     close(fd);
