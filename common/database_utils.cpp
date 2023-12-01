@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <string>
+#include <list>
 
 #include "database_utils.h"
 #include "constants.h"
@@ -239,4 +240,17 @@ int create_auction_end_file(string AID) {
 
     fclose(fd_end_file);
     return 0;
+}
+
+list <string> get_hosted_auctions(string UID) {
+    string hosted_dir = "./USERS/" + string(UID) + "/HOSTED";
+    DIR* hosted = opendir(hosted_dir.c_str());
+    list <string> hosted_list;
+    struct dirent* entry;
+    while ((entry = readdir(hosted)) != NULL) {
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+            hosted_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
+    }
+    closedir(hosted);
+    return hosted_list;
 }

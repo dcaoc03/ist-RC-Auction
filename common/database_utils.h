@@ -19,5 +19,6 @@ int create_auction_dirs(std::string AID, std::string UID);
 void copy_image(std::string AID, std::string file_name, int file_size, char* image_buffer, char* image);
 void create_auction_start_file(std::string AID, std::string UID, std::string asset_name, std::string file_name, int start_value, int timeactive);
 int create_auction_end_file(std::string AID);
+std::list <std::string> get_hosted_auctions(std::string UID);
 
 #endif

@@ -16,6 +16,11 @@
 
 using namespace std;
 
+/* TEJO IP ADDRESS:
+    - IP Address = 193.136.138.142
+    - Port = 58011
+*/
+
 string as_ip_address;
 string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
 
@@ -131,15 +136,14 @@ int main(int argc, char** argv) {
 /*    COMMAND PROCESSING   */
 
 void login(char arguments[]) {
-    char UID[10], password[BUFFER_SIZE];
+    char UID[10], password[10];
 
     sscanf(arguments, "%*s %s %s", UID, password);
 
-    string message = "LIN " + string(UID) + " " + password + "\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
+    char message[BUFFER_SIZE];
+    sprintf(message, "LIN %s %s\n", UID, password);
 
-    string request_result = UDPclient(message2, sizeof(message2));
+    string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         printf("ERROR: failed to write to socket\n");
     else {            // If login is successful
@@ -153,11 +157,10 @@ void login(char arguments[]) {
 }
 
 void logout() {
-    string message = "LOU " + user_ID + " " + user_password + "\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
+    char message[BUFFER_SIZE];
+    sprintf(message, "LOU %s %s\n", user_ID.c_str(), user_password.c_str());
 
-    string request_result = UDPclient(message2, sizeof(message2));
+    string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
     else {             // If logout is successful
@@ -171,11 +174,10 @@ void logout() {
 }
 
 void unregister() {
-    string message = "UNR " + user_ID + " " + user_password + "\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
+    char message[BUFFER_SIZE];
+    sprintf(message, "UNR %s %s\n", user_ID.c_str(), user_password.c_str());
 
-    string request_result = UDPclient(message2, sizeof(message2));
+    string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
     else {             // If unregistration is successful
@@ -269,7 +271,7 @@ void open_auction(char arguments[]) {
 }
 
 void close_auction(char arguments[]) {
-    char AID[MAX_DIGITS];
+    char AID[MAX_DIGITS+1];
     sscanf(arguments, "%*s %s", AID);
 
     string message = "CLS " + user_ID + " " + user_password +" " + AID + '\n';
@@ -281,6 +283,7 @@ void close_auction(char arguments[]) {
         printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
     else {
         char response[COMMAND_WORD_SIZE+1];
+        sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK"))         printf("Auction %s successfully closed\n", AID);
         if (!strcmp(response, "NLG"))        printf("Used user not logged in\n");
         if (!strcmp(response, "EAU"))        printf("Auction %s does not exist\n", AID);
@@ -345,7 +348,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     struct sockaddr_in addr;
     char buffer[128];
     
-    if ((n = sendto(fd_UDP, message, message_size, 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1)
+    if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1)
         return "ERR";
     
     addrlen = sizeof(addr);
@@ -375,7 +378,7 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
     if (n != 0)     {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
     n = connect(fd, res->ai_addr, res->ai_addrlen);
     if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
-    n = write(fd, message, message_size);
+    n = write(fd, message, strlen(message));
     if (n == -1)    {printf("ERROR: failed to create TCP socket\n");  return "ERR";}
 
     // Sending the Image

@@ -52,4 +52,14 @@
 #define AUCTION_OWNER_ERROR "user is not the owner of the auction"
 #define GENERIC_CLOSE_AUCTION_ERROR "something wrong happened while closing the auction"
 
+// My Auctions Function
+#define UNSUCCESSFUL_MY_AUCTIONS "My Auctions %s: failed to execute command; %s\n"
+#define USER_HAS_NO_ONGOING_AUCTIONS "My Auctions %s: user has no ongoing auctions\n"
+#define GENERIC_MY_AUCTIONS_ERROR "something wrong happened while reading an auction file"
+
+// My Bids Function
+#define UNSUCCESSFUL_MY_BIDS "My Bids %s: failed to execute command; %s\n"
+#define USER_HAS_NO_ONGOING_BIDS "My Bids %s: user has placed no bids on ongoing auctions\n"
+#define GENERIC_MY_BIDS_ERROR "something wrong happened while reading an auction file"
+
 #endif
