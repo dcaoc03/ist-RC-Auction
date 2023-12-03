@@ -128,6 +128,8 @@ int main(int argc, char** argv) {
                 myauctions();
             else if (!strcmp(command_word, "mybids") || !strcmp(command_word, "mb"))
                 mybids();
+            else if (!strcmp(command_word, "bid") || !strcmp(command_word, "b"))
+                bid(command_buffer);
         }
         
     }
@@ -292,7 +294,7 @@ void close_auction(char arguments[]) {
         if (!strcmp(response, "NLG"))        printf(USER_NOT_LOGGED_IN_ERROR_USER);
         if (!strcmp(response, "EAU"))        printf(USER_NOT_REGISTERED_ERROR_USER);
         if (!strcmp(response, "EOW"))        printf(UNALLOWED_AUCTION_CLOSING_USER, AID, user_ID.c_str());
-        if (!strcmp(response, "END"))        printf(AUCTION_ALREADY_CLOSED_ERROR, AID);
+        if (!strcmp(response, "END"))        printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);
         else if (!strcmp(response, "ERR"))    printf(GENERIC_AUCTION_OPENING_ERROR_USER);
     }
      
@@ -340,6 +342,29 @@ void mybids() {
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
             printf("%s\n", auctions_list);
         }
+    }
+}
+
+void bid(char arguments[]) {
+    char AID[MAX_DIGITS+1];
+    int value;
+    sscanf(arguments, "%*s %s %d", AID, &value);
+
+    char message[BUFFER_SIZE];
+    sprintf(message, "BID %s %s %s %d\n", user_ID.c_str(), user_password.c_str(), AID, value);
+
+    string request_result = TCPclient(message, sizeof(message), NULL);
+    if (request_result == "ERR")
+        return;
+    else {
+        char response[COMMAND_WORD_SIZE+1];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK")) printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);
+        else if (!strcmp(response, "NLG")) printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ACC")) printf(SUCCESSFUL_BID_USER, value, AID);
+        else if (!strcmp(response, "REF")) printf(LARGER_BID_ERROR_USER);
+        else if (!strcmp(response, "ILG")) printf(BID_ON_HOSTED_AUCTION_ERROR_USER);
+        else if (!strcmp(response, "ERR")) printf(GENERIC_BID_ERROR_USER);
     }
 }
 

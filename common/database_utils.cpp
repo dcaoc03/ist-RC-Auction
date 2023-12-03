@@ -23,6 +23,9 @@ DIR* does_user_exist(string user_id) {
 }
 
 int is_user_logged_in(string user_ID) {
+    DIR* dir = does_user_exist(user_ID);
+    if (dir == NULL)
+        return -1;
     string login_file_name = "./USERS/" + user_ID + "/" + user_ID + "_login.txt";
     return access(login_file_name.c_str(), F_OK);
 }
@@ -218,6 +221,12 @@ void create_auction_start_file(string AID, string UID, string asset_name, string
         start_date_time->tm_hour, start_date_time->tm_min, start_date_time->tm_sec, start_fulltime);
 
     fclose(fd_start_file);
+
+    // Create file which holds highest bid
+    string max_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/MAX_BID.txt";
+    FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "w");
+    fprintf(fd_max_bid_file, "%d", start_value);
+    fclose(fd_max_bid_file);
 }
 
 // Returns 0 if succsess, -1 in case of error
@@ -249,4 +258,50 @@ list <string> get_hosted_auctions(string UID) {
     }
     closedir(hosted);
     return hosted_list;
+}
+
+// Returns 0 if new bid is higher, 0 if not, -1 in case of error
+int get_highest_bid(string AID, int new_bid) {
+    int highest_bid;
+    string max_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/MAX_BID.txt";
+    FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "r+");
+    if (fscanf(fd_max_bid_file, "%d", &highest_bid) < 1) {
+        fclose(fd_max_bid_file);
+        return -1;
+    }
+    fclose(fd_max_bid_file);
+    if (new_bid <= highest_bid) 
+        return 0;
+    else {
+        FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "w");
+        fprintf(fd_max_bid_file, "%d", new_bid);
+        fclose(fd_max_bid_file);
+        return 1;
+    }
+
+}
+
+// Returns 0 if succsess, -1 in case of error
+int create_bid_files(std::string UID, std::string AID, int value, string value_str) {
+    // Create the file in the user's "BIDDED" directory
+    string user_bidded_file_name = "./USERS/" + UID + "/BIDDED/" + AID + ".txt";
+    FILE* fd_user_bidded_file = fopen(user_bidded_file_name.c_str(), "w");
+    fclose(fd_user_bidded_file);
+
+    // Create the file 
+    string auction_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/" + value_str + ".txt";
+    FILE* fd_auction_bid_file = fopen(auction_bid_file_name.c_str(), "w");
+
+    fprintf(fd_auction_bid_file, "%s %d ", UID.c_str(), value);
+
+    time_t bid_fulltime = time(NULL);
+    struct tm *bid_date_time = localtime(&bid_fulltime);
+    time_t start_fulltime = get_auction_start_and_end_fulltime(AID, 's');
+    if (start_fulltime == -1)
+        return -1;
+
+    fprintf(fd_auction_bid_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", bid_date_time->tm_year+1900, bid_date_time->tm_mon + 1, bid_date_time->tm_mday,
+        bid_date_time->tm_hour, bid_date_time->tm_min, bid_date_time->tm_sec, (bid_fulltime - start_fulltime));
+    fclose(fd_auction_bid_file);
+    return 0;
 }

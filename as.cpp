@@ -135,10 +135,15 @@ int main(int argc, char** argv) {
                     response = "ROA " + status + "\n";
                 }
 
-                if (!strcmp(command_word, "CLS")) {
+                else if (!strcmp(command_word, "CLS")) {
                     string status = close_auction(newfd);
                     response = "RCL " + status + "\n";
                 }
+
+                else if (!strcmp(command_word, "BID")) {
+                    response = "RBD " + bid(newfd) + "\n";
+                }
+            
                 
                 const char* response2 = response.c_str();
                 if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
@@ -246,7 +251,7 @@ string login(char arguments[]) {
             }
 
             if (verbose)        printf(SUCCESSFUL_REGISTRATION, UID);
-            return "OK";
+            return "REG";
         }
 
         return "ERR";
@@ -541,4 +546,46 @@ string mybids(char arguments[]) {           // Update to use file abstraction !!
             printf("%s: mybids; failed to locate user in the database\n", UID);
         return "ERR";
     }
+}
+
+string bid(int fd) {
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1], value_char[START_VALUE_SIZE+1];
+
+    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, AID, MAX_DIGITS, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, value_char, START_VALUE_SIZE, true, true) == -1)   return "ERR";
+
+    int value = stoi(value_char);
+
+    if (!does_auction_exist(AID) || !is_auction_ongoing(AID)) {
+        printf(UNSUCCESSFUL_BID, value, AUCTION_NOT_ACTIVE_ERROR);
+        return "NOK";
+    }
+    if ((does_user_exist(UID) == NULL) || (is_user_logged_in(UID) < 0)) {
+        printf(UNSUCCESSFUL_BID, value, USER_NOT_LOGGED_IN_ERROR);
+        return "NLG";
+    }
+    if (does_user_host_auction(AID, UID)) {
+        printf(UNSUCCESSFUL_BID, value, BID_IN_OWN_AUCTION_ERROR);
+        return "ILG";
+    }
+    int is_valid_bid = get_highest_bid(AID, value);
+    if (is_valid_bid == -1) {
+        printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
+        return "ERR";
+    }
+    if (is_valid_bid == 0) {
+        printf(UNSUCCESSFUL_BID, value, BID_IS_NOT_VALID_ERROR);
+        return "REF";
+    }
+    
+    string value_str = string(START_VALUE_SIZE - to_string(value).length(), '0') + to_string(value);
+    if (create_bid_files(UID, AID, value, value_str) < 0) {
+        printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
+        return "ERR";
+    }
+
+    printf(SUCCESSFUL_BID, value);
+    return "ACC";
 }

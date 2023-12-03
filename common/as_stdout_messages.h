@@ -60,4 +60,12 @@
 #define USER_HAS_NO_ONGOING_BIDS "My Bids %s: user has placed no bids on ongoing auctions\n"
 #define GENERIC_MY_BIDS_ERROR "something wrong happened while reading an auction file"
 
+// Bid Function
+#define SUCCESSFUL_BID "Bid %d: bid made successfully\n"
+#define UNSUCCESSFUL_BID "Bid %d: failed to make a bid, %s\n"
+#define AUCTION_NOT_ACTIVE_ERROR "auction is not active"
+#define BID_IN_OWN_AUCTION_ERROR "user tried to bid in their own auction"
+#define BID_IS_NOT_VALID_ERROR "a bigger bid has already been made"
+#define GENERIC_BID_ERROR "something wrong happened while placing a bid"
+
 #endif

@@ -41,7 +41,7 @@
 // Close Auction Function
 #define SUCCESSFUL_AUCTION_CLOSING_USER "Auction %s successfully closed\n"
 #define UNALLOWED_AUCTION_CLOSING_USER "Auction %s is not owned by user %s\n"
-#define AUCTION_ALREADY_CLOSED_ERROR "Auction %s has already ended\n"
+#define AUCTION_ALREADY_CLOSED_ERROR_USER "Auction %s has already ended\n"
 #define GENERIC_AUCTION_CLOSING_ERROR_USER "ERROR: something wrong happened while ending the auction\n"
 
 // My Auctions Function
@@ -51,5 +51,12 @@
 // My Bids FUnction
 #define NO_ONGOING_BIDS_ERROR_USER "User has no ongoing bids\n"
 #define GENERIC_MY_BIDS_ERROR_USER "ERROR: something wrong happened while listing the bids\n"
+
+// Bid Function
+#define SUCCESSFUL_BID_USER "Successfully made a bid of value %d in auction %s\n"
+#define LARGER_BID_ERROR_USER "A larger bid has already been made\n"
+#define BID_ON_HOSTED_AUCTION_ERROR_USER "Users can't bid in their own auctions\n"
+#define GENERIC_BID_ERROR_USER "ERROR: something wrong happened while making a bid\n"
+
 
 #endif

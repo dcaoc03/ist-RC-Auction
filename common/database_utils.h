@@ -20,5 +20,7 @@ void copy_image(std::string AID, std::string file_name, int file_size, char* ima
 void create_auction_start_file(std::string AID, std::string UID, std::string asset_name, std::string file_name, int start_value, int timeactive);
 int create_auction_end_file(std::string AID);
 std::list <std::string> get_hosted_auctions(std::string UID);
+int get_highest_bid(std::string AID, int new_bid);
+int create_bid_files(std::string UID, std::string AID, int value, std::string value_str);
 
 #endif

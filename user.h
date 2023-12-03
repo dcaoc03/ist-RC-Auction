@@ -13,6 +13,7 @@ void list();
 void show_asset();
 void bid();
 void show_record();
+void bid(char* arguments);
 
 std::string UDPclient(char message[], unsigned int message_size);
 std::string TCPclient(const char message[], unsigned int message_size, int *image_fd);
