@@ -11,6 +11,7 @@ std::string open_auction(int fd);
 std::string close_auction(int fd);
 std::string myauctions(char* arguments);
 std::string mybids(char* arguments);
+std::string list_auctions(char* arguments);
 std::string bid(int fd);
 
 #endif

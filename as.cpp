@@ -184,6 +184,10 @@ int main(int argc, char** argv) {
             else if (!strcmp(command_word, "LMB")) {
                 response = "RMB " + mybids(buffer) + "\n";
             }
+
+            else if (!strcmp(command_word, "LST")) {
+                response = "RLS " + list_auctions(buffer) + "\n";
+            }
             
             const char* response2 = response.c_str();
 
@@ -544,6 +548,51 @@ string mybids(char arguments[]) {           // Update to use file abstraction !!
     else {
         if (verbose)
             printf("%s: mybids; failed to locate user in the database\n", UID);
+        return "ERR";
+    }
+}
+
+string list_auctions(char arguments[]) {
+    char UID[UID_SIZE+1];
+    sscanf(arguments, "%*s %s", UID);
+    string str_UID(UID);
+
+    /* COMMAND EXECUTION */
+
+    string dir_name = "./USERS/" + str_UID;
+    DIR* dir = opendir(dir_name.c_str());
+    if (dir) {
+        closedir(dir);
+        string auctions_dir = "./AUCTIONS/";
+        DIR* auctions = opendir(auctions_dir.c_str());
+        list <string> auctions_list;
+        struct dirent* entry;
+        while ((entry = readdir(auctions)) != NULL) {
+            if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+                auctions_list.push_back(string(entry->d_name));
+        }
+        closedir(auctions);
+        if (auctions_list.empty()) {
+            if (verbose)
+                printf("%s: list; there are no auctions\n", UID);
+            return "NOK";
+        }
+        string response = "";
+        for (list<string>::iterator it = auctions_list.begin(); it != auctions_list.end(); it++) {
+            string AID = *it;
+            int ongoing = is_auction_ongoing(AID);
+            if (ongoing == -1) {
+                if (verbose)
+                    printf("%s: list; failed to read %s auction file\n", UID, AID.c_str());
+                return "ERR";
+            }
+            response += " " + AID + (ongoing ? " 1" : " 0");
+        }
+        return "OK" + response + "\n";
+    }
+    else {
+        if (verbose)
+            printf("%s: list; failed to locate user in the database\n", UID);
         return "ERR";
     }
 }

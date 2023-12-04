@@ -9,9 +9,8 @@ void open_auction(char* arguments);
 void close_auction(char* arguments);
 void myauctions();
 void mybids();
-void list();
+void list_auctions();
 void show_asset();
-void bid();
 void show_record();
 void bid(char* arguments);
 
