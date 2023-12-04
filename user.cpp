@@ -28,8 +28,6 @@ string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
 string user_ID="";                     // When user_ID= "", the user isn't logged in
 string user_password="";
 
-int fd_UDP;
-struct addrinfo hints_UDP, *res_UDP;
 
 /*  MAIN FUNCTIONS   */
 
@@ -70,19 +68,6 @@ void process_arguments(int argc, char** argv) {         // processes the argumen
     }
 }
 
-int setup_UDP_socket() {
-    if ((fd_UDP = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-        return -1;
-    
-    memset(&hints_UDP, 0, sizeof hints_UDP);
-    hints_UDP.ai_family = AF_INET;
-    hints_UDP.ai_socktype = SOCK_DGRAM;
-
-    if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints_UDP, &res_UDP)) != 0) 
-        return -1;
-    return 0;
-}
-
 int main(int argc, char** argv) {
 
     as_ip_address = get_as_ip_address();
@@ -91,11 +76,6 @@ int main(int argc, char** argv) {
 
     if (argc > 1)
         process_arguments(argc, argv);
-    
-    if (setup_UDP_socket() == -1) {
-        printf(SOCKET_CREATION_ERROR, "UDP");
-        return 1;
-    }
 
     while (!end) {
         char command_buffer[BUFFER_SIZE], command_word[20];
@@ -135,8 +115,6 @@ int main(int argc, char** argv) {
         }
         
     }
-    freeaddrinfo(res_UDP);
-    close(fd_UDP);
     return 0;
 }
 
@@ -395,10 +373,27 @@ void bid(char arguments[]) {
 /* SOCKET WRITING */
 
 string UDPclient(char message[], unsigned int message_size) {      // Returns -1 if error, 0 if successful but denied, 1 if successful
+    int fd_UDP;
+    struct addrinfo hints_UDP, *res_UDP;
+    
+    if ((fd_UDP = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        printf(SOCKET_CREATION_ERROR, "UDP");
+        return "ERR";
+    }
+    
+    memset(&hints_UDP, 0, sizeof hints_UDP);
+    hints_UDP.ai_family = AF_INET;
+    hints_UDP.ai_socktype = SOCK_DGRAM;
+
+    if ((getaddrinfo(as_ip_address.c_str(), as_port.c_str(), &hints_UDP, &res_UDP)) != 0) {
+        printf(SOCKET_CREATION_ERROR, "UDP");
+        return "ERR";
+    }
+
     ssize_t n;
     socklen_t addrlen;
     struct sockaddr_in addr;
-    char buffer[128];
+    char buffer[BUFFER_SIZE];
     
     if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1) {
         printf(SOCKET_WRITING_ERROR, "UDP");
@@ -410,6 +405,9 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
         printf(SOCKET_READING_ERROR, "UDP");
         return "ERR";
     }
+
+    freeaddrinfo(res_UDP);
+    close(fd_UDP);
 
     return buffer;
 }
