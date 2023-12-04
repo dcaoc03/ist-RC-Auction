@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <dirent.h>
+#include <signal.h>
 
 #include <string>
 #include <cctype>
@@ -65,10 +66,23 @@ int main(int argc, char** argv) {
     socklen_t addrlen_tcp, addrlen_udp;
     struct addrinfo hints_tcp, hints_udp, *res_tcp, *res_udp;
     struct sockaddr_in addr_tcp, addr_udp;
-    char buffer[BUFFER_SIZE], command_word[COMMAND_WORD_SIZE+1];
+    char buffer[UDP_BUFFER_SIZE], command_word[COMMAND_WORD_SIZE+1];
     fd_set fdset;
 
     pid_t child_pid;
+
+    /* SIGNAL HANDLING */
+    struct sigaction act;
+    memset(&act, 0, sizeof act);
+    act.sa_handler = SIG_IGN;
+    if (sigaction(SIGCHLD, &act, NULL) == -1) {
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
+    if (sigaction(SIGPIPE, &act, NULL) == -1) {
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
 
     /* CREATE TCP SOCKET */
    
@@ -349,14 +363,15 @@ string open_auction(int fd) {
     if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
     
     // Converting the numeric parameters
-    int start_value = atoi(start_value_str);
-    int timeactive = atoi(timeactive_str);
-    int file_size = atoi(file_size_str);
+    long start_value = atol(start_value_str);
+    long timeactive = atol(timeactive_str);
+    long file_size = atol(file_size_str);
 
     // Reading the image
     char image_buffer[IMAGE_BUFFER_SIZE];
     char* image = (char*) malloc(sizeof(char)*file_size);
-    int n, bytes_read=0;
+    long bytes_read=0; 
+    int n; 
     memset(image, 0, file_size);
     while (bytes_read < file_size) {
         memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
@@ -605,7 +620,7 @@ string bid(int fd) {
     if (byte_reading(fd, AID, MAX_DIGITS, false, false) == -1)   return "ERR";
     if (byte_reading(fd, value_char, START_VALUE_SIZE, true, true) == -1)   return "ERR";
 
-    int value = stoi(value_char);
+    long value = stol(value_char);
 
     if (!does_auction_exist(AID) || !is_auction_ongoing(AID)) {
         printf(UNSUCCESSFUL_BID, value, AUCTION_NOT_ACTIVE_ERROR);

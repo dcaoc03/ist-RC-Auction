@@ -196,7 +196,7 @@ int image_processing(char image_name[], string* message) {
         return -1;
     }
     fseek(jpg_pointer, 0, SEEK_END);
-    unsigned int jpg_size = ftell(jpg_pointer);
+    long jpg_size = ftell(jpg_pointer);
     fseek(jpg_pointer, 0, SEEK_SET);
     if (jpg_size > MAX_JPG_SIZE) {
         printf("ERROR: file size exceeds 10 MB\n"); 
@@ -215,9 +215,10 @@ int image_processing(char image_name[], string* message) {
 void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
     char asset_name[20], file_name[BUFFER_SIZE];
-    int start_value, timeactive, jpg_fd;
+    long start_value, timeactive;
+    int  jpg_fd;
 
-    sscanf(arguments, "%*s %s %s %d %d", asset_name, file_name, &start_value, &timeactive);
+    sscanf(arguments, "%*s %s %s %ld %ld", asset_name, file_name, &start_value, &timeactive);
 
     if (strlen(asset_name) > ASSET_NAME_SIZE) {
         printf(ARGUMENTS_SIZE_ERROR, "asset_name", ASSET_NAME_SIZE); 
@@ -332,14 +333,14 @@ void list_auctions() {
 
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
-        printf("ERROR: failed to write to socket\n");                  // CHANGE ERROR HANDLING!!!!
+        return;
     else {             // If list is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK"))         printf("No auctions are currently open\n");
         else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
         else {
-            char auctions_list[BUFFER_SIZE];
+            char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
             printf("%s\n", auctions_list);
         }
@@ -348,11 +349,11 @@ void list_auctions() {
 
 void bid(char arguments[]) {
     char AID[MAX_DIGITS+1];
-    int value;
-    sscanf(arguments, "%*s %s %d", AID, &value);
+    long value;
+    sscanf(arguments, "%*s %s %ld", AID, &value);
 
     char message[BUFFER_SIZE];
-    sprintf(message, "BID %s %s %s %d\n", user_ID.c_str(), user_password.c_str(), AID, value);
+    sprintf(message, "BID %s %s %s %ld\n", user_ID.c_str(), user_password.c_str(), AID, value);
 
     string request_result = TCPclient(message, sizeof(message), NULL);
     if (request_result == "ERR")
@@ -393,7 +394,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     ssize_t n;
     socklen_t addrlen;
     struct sockaddr_in addr;
-    char buffer[BUFFER_SIZE];
+    char buffer[UDP_BUFFER_SIZE];
     
     if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1) {
         printf(SOCKET_WRITING_ERROR, "UDP");
@@ -401,7 +402,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     }
     
     addrlen = sizeof(addr);
-    if ((n = recvfrom(fd_UDP, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen)) == -1) {
+    if ((n = recvfrom(fd_UDP, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*) &addr, &addrlen)) == -1) {
         printf(SOCKET_READING_ERROR, "UDP");
         return "ERR";
     }

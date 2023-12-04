@@ -7,6 +7,7 @@
 #define SOCKET_WRITING_ERROR "SOCKET ERROR: failed to write to %s socket\n"
 #define AUCTIONS_NOT_FOUND_ERROR "DATABASE ERROR: directory \"AUCTIONS\" not found\n"
 #define BADLY_FORMATTED_MESSAGE "PROTOCOL ERROR: received message is badly formatted\n"
+#define SIGNAL_HANDLING_ERROR "SIGNAL ERROR: failed to set signal handler\n"
 
 // Login Function
 #define SUCCESSFUL_LOGIN "Login %s: user succesfully logged in\n"
@@ -61,8 +62,8 @@
 #define GENERIC_MY_BIDS_ERROR "something wrong happened while reading an auction file"
 
 // Bid Function
-#define SUCCESSFUL_BID "Bid %d: bid made successfully\n"
-#define UNSUCCESSFUL_BID "Bid %d: failed to make a bid, %s\n"
+#define SUCCESSFUL_BID "Bid %ld: bid made successfully\n"
+#define UNSUCCESSFUL_BID "Bid %ld: failed to make a bid, %s\n"
 #define AUCTION_NOT_ACTIVE_ERROR "auction is not active"
 #define BID_IN_OWN_AUCTION_ERROR "user tried to bid in their own auction"
 #define BID_IS_NOT_VALID_ERROR "a bigger bid has already been made"
