@@ -296,7 +296,7 @@ void myauctions() {
         else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
         else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_AUCTIONS_ERROR_USER);
         else {
-            char auctions_list[BUFFER_SIZE];
+            char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
             printf("%s\n", auctions_list);
         }
@@ -319,7 +319,7 @@ void mybids() {
         else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
         else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_BIDS_ERROR_USER);
         else {
-            char auctions_list[BUFFER_SIZE];
+            char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
             printf("%s\n", auctions_list);
         }
