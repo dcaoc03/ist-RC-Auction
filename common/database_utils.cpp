@@ -9,7 +9,7 @@
 #include <string>
 #include <list>
 
-#include "database_utils.h"
+#include "database_utils.hpp"
 #include "constants.h"
 
 using namespace std;

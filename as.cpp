@@ -17,10 +17,10 @@
 #include <cctype>
 #include <list>
 
-#include "as.h"
+#include "as.hpp"
 #include "./common/constants.h"
-#include "./common/utils.h"
-#include "./common/database_utils.h"
+#include "./common/utils.hpp"
+#include "./common/database_utils.hpp"
 #include "./common/as_stdout_messages.h"
 
 using namespace std;

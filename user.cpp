@@ -11,10 +11,10 @@
 
 #include <string>
 
-#include "user.h"
+#include "user.hpp"
 #include "./common/constants.h"
 #include "./common/user_stdout_messages.h"
-#include "./common/utils.h"
+#include "./common/utils.hpp"
 
 using namespace std;
 
