@@ -8,6 +8,7 @@
 #define AUCTIONS_NOT_FOUND_ERROR "DATABASE ERROR: directory \"AUCTIONS\" not found\n"
 #define BADLY_FORMATTED_MESSAGE "PROTOCOL ERROR: received message is badly formatted\n"
 #define SIGNAL_HANDLING_ERROR "SIGNAL ERROR: failed to set signal handler\n"
+#define IMAGE_FILE_DESCRIPTOR_ERROR "ERROR: failed to read from the designated file descriptor\n"
 
 // Login Function
 #define SUCCESSFUL_LOGIN "Login %s: user succesfully logged in\n"
@@ -68,5 +69,10 @@
 #define BID_IN_OWN_AUCTION_ERROR "user tried to bid in their own auction"
 #define BID_IS_NOT_VALID_ERROR "a bigger bid has already been made"
 #define GENERIC_BID_ERROR "something wrong happened while placing a bid"
+
+// Show Asset Function
+#define UNSUCCESSFUL_SHOW_ASSET "Show Auction %s: failed to show asset; %s\n"
+#define ASSET_NOT_FOUND_ERROR "couldn't find requested asset"
+#define GENERIC_SHOW_ASSET_ERROR "something wrong happened while getting the asset"
 
 #endif

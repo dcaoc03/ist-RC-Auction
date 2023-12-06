@@ -13,5 +13,6 @@ std::string myauctions(char* arguments);
 std::string mybids(char* arguments);
 std::string list_auctions(char* arguments);
 std::string bid(int fd);
+std::string show_asset(int fd, int *asset_fd);
 
 #endif

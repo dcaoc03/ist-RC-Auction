@@ -186,19 +186,23 @@ int create_auction_dirs(string AID, string UID) {
     // Create directory in AUCTIONS
     string auctions_dir = "./AUCTIONS/" + AID;
     string bids_dir = auctions_dir + "/BIDS";
+    string asset_dir = auctions_dir + "/ASSET";
     if (mkdir(auctions_dir.c_str(), S_IRWXU) == -1) {
         return -1;
     }
     if (mkdir(bids_dir.c_str(), S_IRWXU) == -1) {
         return -1;
     }
+    if (mkdir(asset_dir.c_str(), S_IRWXU) == -1) {
+        return -1;
+    }
     return 0;
 }
 
 void copy_image(string AID, string file_name, long file_size, char* image_buffer, char* image) {
-    string image_name = "./AUCTIONS/" + AID + "/" + file_name;
+    string image_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
     FILE* fd_image = fopen(image_name.c_str(), "w");
-    int bytes_read = 0, n;
+    long bytes_read = 0, n;
     while (bytes_read < file_size) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
         memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
@@ -304,4 +308,22 @@ int create_bid_files(std::string UID, std::string AID, long value, string value_
         bid_date_time->tm_hour, bid_date_time->tm_min, bid_date_time->tm_sec, (bid_fulltime - start_fulltime));
     fclose(fd_auction_bid_file);
     return 0;
+}
+
+string get_auction_file_name(string AID) {
+    string file_name;
+    if (!does_auction_exist(AID))
+        return "";
+
+    string auction_asset_dir_name = "./AUCTIONS/" + AID + "/ASSET";
+    DIR* auction_asset_dir = opendir(auction_asset_dir_name.c_str());
+    struct dirent* entry;
+    while ((entry = readdir(auction_asset_dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")){
+            file_name = entry->d_name;
+            break;
+        }
+    }
+    closedir(auction_asset_dir);
+    return file_name;
 }

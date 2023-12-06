@@ -84,6 +84,8 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    /* -----TODO-----: kill all child processes smoothly */
+
     /* CREATE TCP SOCKET */
    
     memset(&hints_tcp, 0, sizeof hints_tcp );
@@ -139,6 +141,8 @@ int main(int argc, char** argv) {
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
+                int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
+
                 if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
 
                 /* REQUEST PROCESSING */
@@ -157,12 +161,34 @@ int main(int argc, char** argv) {
                 else if (!strcmp(command_word, "BID")) {
                     response = "RBD " + bid(newfd) + "\n";
                 }
+
+                else if (!strcmp(command_word, "SAS")) {
+                    response = "RSA " + show_asset(newfd, &asset_fd);
+                    if (asset_fd < 0)
+                        response += "\n";
+                }
             
                 
                 const char* response2 = response.c_str();
                 if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
                     printf(SOCKET_WRITING_ERROR, "TCP");
                     exit(1);
+                }
+                if (asset_fd >= 0) {                    // If asset_fd != -1, show_asset() was successful, so we send the asset
+                    long image_size, bytes_read=0;
+                    char image_buffer[IMAGE_BUFFER_SIZE];
+                    sscanf(response2, "%*s %*s %*s %ld", &image_size);
+                    while (bytes_read < image_size) {
+                        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+                        n = read(asset_fd, image_buffer, IMAGE_BUFFER_SIZE);
+                        if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR);  exit(1);}
+                        n = write(newfd, image_buffer, n);
+                        if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP");  exit(1);}
+                        bytes_read += n;
+                    }
+                    char new_line_char = '\n';
+                    n = write(newfd, &new_line_char, 1);
+                    close(asset_fd);
                 }
                 close(newfd); 
                 exit(0); 
@@ -652,4 +678,26 @@ string bid(int fd) {
 
     printf(SUCCESSFUL_BID, value);
     return "ACC";
+}
+
+string show_asset(int fd, int *image_fd) {
+    char AID[MAX_DIGITS+1];
+
+    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+
+    string file_name = get_auction_file_name(AID);
+    if (file_name == "") {
+        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        return "NOK";
+    }
+
+    string response = "OK " + file_name;
+    string file_path = "./AUCTIONS/" + string(AID) + "/ASSET/" + file_name;
+    *image_fd = image_processing((char*) file_path.c_str(), &response);
+    if (*image_fd == -1) {
+        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        return "NOK";
+    }
+
+    return response;
 }

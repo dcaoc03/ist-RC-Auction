@@ -4,8 +4,6 @@ TODO:
 - Auction Server (AS)
   - Responses
 - User Application
-  - list/l
-  - show_asset/sa
   - show_record/sr
 
 DONE:
@@ -22,5 +20,7 @@ DONE:
   - myauctions/ma
   - mybids/mb
   - bid/b
+  - list/l
+  - show_asset/sa
 
 Should we add a wait() when issuing a TCP request? That's a question for later :P

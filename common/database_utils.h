@@ -22,5 +22,6 @@ int create_auction_end_file(std::string AID);
 std::list <std::string> get_hosted_auctions(std::string UID);
 int get_highest_bid(std::string AID, long new_bid);
 int create_bid_files(std::string UID, std::string AID, long value, std::string value_str);
+std::string get_auction_file_name(std::string AID);
 
 #endif

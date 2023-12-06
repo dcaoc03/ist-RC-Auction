@@ -14,6 +14,7 @@
 #include "user.h"
 #include "./common/constants.h"
 #include "./common/user_stdout_messages.h"
+#include "./common/utils.h"
 
 using namespace std;
 
@@ -112,6 +113,8 @@ int main(int argc, char** argv) {
                 list_auctions();
             else if (!strcmp(command_word, "bid") || !strcmp(command_word, "b"))
                 bid(command_buffer);
+            else if (!strcmp(command_word, "show_asset") || !strcmp(command_word, "sa"))
+                show_asset(command_buffer);
         }
         
     }
@@ -186,32 +189,6 @@ void exit(int* ending) {
     }
 }
 
-// TODO: put this function in utils.c
-int image_processing(char image_name[], string* message) {
-    // Get image size
-    FILE* jpg_pointer = fopen(image_name, "rb");
-    int fd_jpg;
-    if (jpg_pointer == NULL) {
-        printf("ERROR: image file not found\n"); 
-        return -1;
-    }
-    fseek(jpg_pointer, 0, SEEK_END);
-    long jpg_size = ftell(jpg_pointer);
-    fseek(jpg_pointer, 0, SEEK_SET);
-    if (jpg_size > MAX_JPG_SIZE) {
-        printf("ERROR: file size exceeds 10 MB\n"); 
-        return -1;
-    }
-    fclose(jpg_pointer);
-    *message += " " + to_string(jpg_size) + " ";
-
-    if((fd_jpg = open(image_name, S_IRUSR)) < 0) {
-        printf("ERROR: failed to open jpg file\n");
-        return -1;
-    }
-    return fd_jpg;
-}
-
 void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
     char asset_name[20], file_name[BUFFER_SIZE];
@@ -238,7 +215,7 @@ void open_auction(char arguments[]) {
     }
 
     const char* message2 = message.c_str();
-    string request_result = TCPclient(message2, strlen(message2), &jpg_fd);
+    string request_result = TCPclient(message2, strlen(message2), &jpg_fd, NULL);
     if (request_result == "ERR")
         return;
     else {
@@ -265,7 +242,7 @@ void close_auction(char arguments[]) {
     char message2[BUFFER_SIZE];
     strcpy(message2, message.c_str());
 
-    string request_result = TCPclient(message2, sizeof(message2), NULL);
+    string request_result = TCPclient(message2, sizeof(message2), NULL, NULL);
     if (request_result == "ERR")
         return;
     else {
@@ -355,7 +332,7 @@ void bid(char arguments[]) {
     char message[BUFFER_SIZE];
     sprintf(message, "BID %s %s %s %ld\n", user_ID.c_str(), user_password.c_str(), AID, value);
 
-    string request_result = TCPclient(message, sizeof(message), NULL);
+    string request_result = TCPclient(message, sizeof(message), NULL, NULL);
     if (request_result == "ERR")
         return;
     else {
@@ -368,6 +345,60 @@ void bid(char arguments[]) {
         else if (!strcmp(response, "ILG")) printf(BID_ON_HOSTED_AUCTION_ERROR_USER);
         else if (!strcmp(response, "ERR")) printf(GENERIC_BID_ERROR_USER);
     }
+}
+
+void show_asset(char arguments[]) {
+    char AID[MAX_DIGITS+1];
+    sscanf(arguments, "%*s %s", AID);
+
+    char message[BUFFER_SIZE];
+    sprintf(message, "SAS %s\n", AID);
+
+    int socket_fd;
+    string request_result = TCPclient(message, sizeof(message), NULL, &socket_fd);
+
+    // Complexity of reading the socket is made here
+    char response_word[COMMAND_WORD_SIZE+1], status[COMMAND_WORD_SIZE+1];
+    if (byte_reading(socket_fd, response_word, COMMAND_WORD_SIZE, false, false))     printf(GENERIC_SHOW_ASSET_ERROR);
+    if (byte_reading(socket_fd, status, COMMAND_WORD_SIZE, true, false))             printf(GENERIC_SHOW_ASSET_ERROR);
+
+    if (!strcmp(status, "ERR") || !strcmp(status, "NOK")) 
+        printf(GENERIC_SHOW_ASSET_ERROR);
+    else if (!strcmp(status, "OK")) {
+        char file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
+        if (byte_reading(socket_fd, file_name, FILE_NAME_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (byte_reading(socket_fd, file_size_str, FILE_SIZE_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+
+        long file_size = stol(file_size_str);
+    
+        // Reading the image
+        char image_buffer[IMAGE_BUFFER_SIZE];
+        long bytes_read=0; 
+        int n; 
+        FILE* fd_image = fopen(file_name, "w");
+        while (bytes_read < file_size) {
+            memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+            n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+            n = read(socket_fd, image_buffer, n);
+            if (n < 0)         {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+            n = fwrite(image_buffer, 1, n, fd_image);
+            bytes_read += n;
+        }
+
+        // Reading the '\n' character at the end
+        char read_char;
+        n = read(socket_fd, &read_char, 1);
+        if (n < 0)                      {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (read_char != '\n')          {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+
+        fclose(fd_image);
+
+        char dir[BUFFER_SIZE];
+        if (getcwd(dir, BUFFER_SIZE) == NULL)         {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;};
+        printf(SUCCESSFUL_SHOW_ASSET_USER, file_name, dir);
+
+    }
+    close(socket_fd);
 }
 
 
@@ -416,7 +447,7 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
 
 
 
-string TCPclient(const char message[], unsigned int message_size, int *image_fd) {
+string TCPclient(const char message[], unsigned int message_size, int *image_fd, int *socket_fd) {
     int fd;
     ssize_t n;
     struct addrinfo hints, *res;
@@ -438,9 +469,9 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
 
     // Sending the Image
     if (image_fd != NULL) {
-        int image_size, bytes_read=0;
+        long image_size, bytes_read=0;
         char image_buffer[IMAGE_BUFFER_SIZE];
-        sscanf(message, "%*s %*s %*s %*s %*d %*d %*s %d", &image_size);
+        sscanf(message, "%*s %*s %*s %*s %*d %*d %*s %ld", &image_size);
         while (bytes_read < image_size) {
             memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
             n = read(*image_fd, image_buffer, IMAGE_BUFFER_SIZE);
@@ -453,6 +484,11 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd)
         n = write(fd, &new_line_char, 1);
     }
 
+    // If was called by show_asset(), transfer conntrol to it
+    if (socket_fd != NULL) {
+        *socket_fd = fd;
+        return "";
+    }
     // Await the answer
     n = read(fd, buffer, 128);
     if (n == -1) {printf(SOCKET_READING_ERROR, "TCP");  return "ERR";}

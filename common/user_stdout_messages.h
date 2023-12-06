@@ -58,5 +58,9 @@
 #define BID_ON_HOSTED_AUCTION_ERROR_USER "Users can't bid in their own auctions\n"
 #define GENERIC_BID_ERROR_USER "ERROR: something wrong happened while making a bid\n"
 
+// Show Asset Function
+#define SUCCESSFUL_SHOW_ASSET_USER "Asset %s successfully saved in directory %s\n"
+#define GENERIC_SHOW_ASSET_ERROR "ERROR: something wrong happened while getting the asset\n"
+
 
 #endif
