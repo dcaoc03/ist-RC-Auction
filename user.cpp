@@ -24,15 +24,20 @@ using namespace std;
 */
 
 string as_ip_address;
-string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
+string as_port;
 
 string user_ID="";                     // When user_ID= "", the user isn't logged in
 string user_password="";
 
 
-/*  MAIN FUNCTIONS   */
 
-string get_as_ip_address() {            // gets the machine's IP address and uses it as the default IP address for the AS
+/*  +----------------------------------+
+    |                                  |
+    |          MAIN FUNCTIONS          |
+    |                                  |
+    +----------------------------------+  */
+
+string get_as_ip_address() {            // gets the machine's IP address and uses it as the default IP address for the AS (unnecesarilly complicated)
     string ip_address;
     char host_name[128];
     if(gethostname(host_name, 128)==-1)
@@ -121,7 +126,29 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-/*    COMMAND PROCESSING   */
+
+
+/*  +--------------------------------------+
+    |                                      |
+    |          COMMAND PROCESSING          |
+    |                                      |
+    +--------------------------------------+  */
+
+/*  +------- Flux Control Functions -------+  */
+
+void exit(int* ending) {
+    if (user_ID != "") {
+        printf(EXIT_BEFORE_LOGOUT_ERROR);
+        return;
+    }
+    else{
+        *ending = 1;
+        return;
+    }
+}
+
+
+/*  +------------ UDP Commands ------------+ */
 
 void login(char arguments[]) {
     char UID[10], password[10];
@@ -178,16 +205,74 @@ void unregister() {
     }
 }
 
-void exit(int* ending) {
-    if (user_ID != "") {
-        printf(EXIT_BEFORE_LOGOUT_ERROR);
+void myauctions() {
+    string message = "LMA " + user_ID + "\n";
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    string request_result = UDPclient(message2, sizeof(message2));
+    if (request_result == "ERR")
         return;
+    else {             // If myauctions is successful
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR_USER);
+        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_AUCTIONS_ERROR_USER);
+        else {
+            char auctions_list[UDP_BUFFER_SIZE];
+            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
+            printf("%s\n", auctions_list);
+        }
     }
-    else{
-        *ending = 1;
+
+}
+
+void mybids() {
+    string message = "LMB " + user_ID + "\n";
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    string request_result = UDPclient(message2, sizeof(message2));
+    if (request_result == "ERR")
         return;
+    else {             // If mybids is successful
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_BIDS_ERROR_USER);
+        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_BIDS_ERROR_USER);
+        else {
+            char auctions_list[UDP_BUFFER_SIZE];
+            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
+            printf("%s\n", auctions_list);
+        }
     }
 }
+
+void list_auctions() {
+    string message = "LST\n";
+    char message2[BUFFER_SIZE];
+    strcpy(message2, message.c_str());
+
+    string request_result = UDPclient(message2, sizeof(message2));
+    if (request_result == "ERR")
+        return;
+    else {             // If list is successful
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK"))         printf("No auctions are currently open\n");
+        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
+        else {
+            char auctions_list[UDP_BUFFER_SIZE];
+            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
+            printf("%s\n", auctions_list);
+        }
+    }
+}
+
+
+/*  +------------ TCP Commands ------------+ */
 
 void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
@@ -258,95 +343,6 @@ void close_auction(char arguments[]) {
      
 }
 
-void myauctions() {
-    string message = "LMA " + user_ID + "\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
-
-    string request_result = UDPclient(message2, sizeof(message2));
-    if (request_result == "ERR")
-        return;
-    else {             // If myauctions is successful
-        char response[BUFFER_SIZE];
-        sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR_USER);
-        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
-        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_AUCTIONS_ERROR_USER);
-        else {
-            char auctions_list[UDP_BUFFER_SIZE];
-            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
-        }
-    }
-
-}
-
-void mybids() {
-    string message = "LMB " + user_ID + "\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
-
-    string request_result = UDPclient(message2, sizeof(message2));
-    if (request_result == "ERR")
-        return;
-    else {             // If mybids is successful
-        char response[BUFFER_SIZE];
-        sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_BIDS_ERROR_USER);
-        else if (!strcmp(response, "NLG"))    printf(USER_NOT_LOGGED_IN_ERROR_USER);
-        else if (!strcmp(response, "ERR"))    printf(GENERIC_MY_BIDS_ERROR_USER);
-        else {
-            char auctions_list[UDP_BUFFER_SIZE];
-            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
-        }
-    }
-}
-
-void list_auctions() {
-    string message = "LST\n";
-    char message2[BUFFER_SIZE];
-    strcpy(message2, message.c_str());
-
-    string request_result = UDPclient(message2, sizeof(message2));
-    if (request_result == "ERR")
-        return;
-    else {             // If list is successful
-        char response[BUFFER_SIZE];
-        sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf("No auctions are currently open\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
-        else {
-            char auctions_list[UDP_BUFFER_SIZE];
-            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
-        }
-    }
-}
-
-void bid(char arguments[]) {
-    char AID[MAX_DIGITS+1];
-    long value;
-    sscanf(arguments, "%*s %s %ld", AID, &value);
-
-    char message[BUFFER_SIZE];
-    sprintf(message, "BID %s %s %s %ld\n", user_ID.c_str(), user_password.c_str(), AID, value);
-
-    string request_result = TCPclient(message, sizeof(message), NULL, NULL);
-    if (request_result == "ERR")
-        return;
-    else {
-        char response[COMMAND_WORD_SIZE+1];
-        sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK")) printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);
-        else if (!strcmp(response, "NLG")) printf(USER_NOT_LOGGED_IN_ERROR_USER);
-        else if (!strcmp(response, "ACC")) printf(SUCCESSFUL_BID_USER, value, AID);
-        else if (!strcmp(response, "REF")) printf(LARGER_BID_ERROR_USER);
-        else if (!strcmp(response, "ILG")) printf(BID_ON_HOSTED_AUCTION_ERROR_USER);
-        else if (!strcmp(response, "ERR")) printf(GENERIC_BID_ERROR_USER);
-    }
-}
-
 void show_asset(char arguments[]) {
     char AID[MAX_DIGITS+1];
     sscanf(arguments, "%*s %s", AID);
@@ -401,8 +397,36 @@ void show_asset(char arguments[]) {
     close(socket_fd);
 }
 
+void bid(char arguments[]) {
+    char AID[MAX_DIGITS+1];
+    long value;
+    sscanf(arguments, "%*s %s %ld", AID, &value);
 
-/* SOCKET WRITING */
+    char message[BUFFER_SIZE];
+    sprintf(message, "BID %s %s %s %ld\n", user_ID.c_str(), user_password.c_str(), AID, value);
+
+    string request_result = TCPclient(message, sizeof(message), NULL, NULL);
+    if (request_result == "ERR")
+        return;
+    else {
+        char response[COMMAND_WORD_SIZE+1];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK")) printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);
+        else if (!strcmp(response, "NLG")) printf(USER_NOT_LOGGED_IN_ERROR_USER);
+        else if (!strcmp(response, "ACC")) printf(SUCCESSFUL_BID_USER, value, AID);
+        else if (!strcmp(response, "REF")) printf(LARGER_BID_ERROR_USER);
+        else if (!strcmp(response, "ILG")) printf(BID_ON_HOSTED_AUCTION_ERROR_USER);
+        else if (!strcmp(response, "ERR")) printf(GENERIC_BID_ERROR_USER);
+    }
+}
+
+
+
+/*  +----------------------------------+
+    |                                  |
+    |          SOCKET WRITING          |
+    |                                  |
+    +----------------------------------+  */
 
 string UDPclient(char message[], unsigned int message_size) {      // Returns -1 if error, 0 if successful but denied, 1 if successful
     int fd_UDP;
@@ -443,8 +467,6 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
 
     return buffer;
 }
-
-
 
 
 string TCPclient(const char message[], unsigned int message_size, int *image_fd, int *socket_fd) {

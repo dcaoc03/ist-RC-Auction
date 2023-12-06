@@ -25,10 +25,18 @@
 
 using namespace std;
 
-string as_port;                             // INCLUDE GROUP NUMBER!!!!!!
+string as_port;
 bool verbose=false;
 
 int n_auctions=0;
+
+
+
+/*  +----------------------------------+
+    |                                  |
+    |          MAIN FUNCTIONS          |
+    |                                  |
+    +----------------------------------+  */
 
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
     for (int i=1; i < argc; i++) {
@@ -242,7 +250,13 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-/* REQUEST HANDLING FUNCTIONS */
+/*  +--------------------------------------+
+    |                                      |
+    |          REQUEST PROCESSING          |
+    |                                      |
+    +--------------------------------------+  */
+
+/*  +------------ UDP Commands ------------+ */
 
 string login(char arguments[]) {
     char UID[UID_SIZE*2], password[PASSWORD_SIZE*2];
@@ -373,135 +387,6 @@ string unregister(char arguments[]) {
         if (verbose)    printf(UNSUCCESSFUL_UNREGISTRATION, UID, USER_NOT_REGISTERED_ERROR);
         return "UNR";
     }
-}
-
-string open_auction(int fd) {
-    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
-        timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
-
-    // Reading the parameters
-    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
-    
-    // Converting the numeric parameters
-    long start_value = atol(start_value_str);
-    long timeactive = atol(timeactive_str);
-    long file_size = atol(file_size_str);
-
-    // Reading the image
-    char image_buffer[IMAGE_BUFFER_SIZE];
-    char* image = (char*) malloc(sizeof(char)*file_size);
-    long bytes_read=0; 
-    int n; 
-    memset(image, 0, file_size);
-    while (bytes_read < file_size) {
-        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
-        n = read(fd, image_buffer, n);
-        if (n < 0) {
-            printf(SOCKET_READING_ERROR, "TCP");
-            return "ERR";
-        }
-        memcpy(image+bytes_read, image_buffer, n);
-        bytes_read += n;
-    }
-
-    // Reading the '\n' character at the end
-    char read_char;
-    n = read(fd, &read_char, 1);
-    if (n < 0) {
-        printf(SOCKET_READING_ERROR, "TCP");
-        return "ERR";
-    }
-    if (read_char != '\n') {
-        printf(BADLY_FORMATTED_MESSAGE);
-        return "ERR";
-    }
-
-    /* ARGUMENT PROCESSING */
-    if ((start_value < 0) || (timeactive < 0)) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, NUMERIC_VALUES_ERROR);
-        return "NOK";
-    }
-
-    if (n_auctions == MAX_AUCTIONS) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, MAX_NUM_AUCTIONS_ERROR);
-        return "NOK";
-    }
-
-    if (is_user_logged_in(UID) < 0) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, USER_NOT_LOGGED_IN_ERROR);
-        return "NLG";
-    }
-
-    /* COMMAND EXECUTION */
-
-    (n_auctions)++;
-    int n_AID = n_auctions;
-    string s_AID = to_string(n_AID);
-    string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
-
-    // Create .txt on User directory
-    if (create_auction_dirs(AID, UID) == -1) {
-        printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
-        return "ERR";
-    }
-
-    // Create image
-    copy_image(AID, file_name, file_size, image_buffer, image);
-    free(image);
-
-    // Create Start file
-    create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
-    
-    if (verbose)    printf(SUCCESSFUL_AUCTION_OPENING, asset_name, AID.c_str());
-    return "OK " + AID;
-}
-
-string close_auction(int fd) {
-    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1];
-    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
-
-    // Check arguments
-    if (is_user_logged_in(UID) < 0) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, USER_NOT_LOGGED_IN_ERROR);
-        return "NLG";
-    }
-
-    if (!does_auction_exist(AID)) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_NOT_FOUND_ERROR);
-        return "EAU";
-    }
-
-    if (!does_user_host_auction(AID, UID)) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_OWNER_ERROR);
-        return "EOW";
-    }
-
-    int auction_status = is_auction_ongoing(AID);
-    if (auction_status == -1) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
-        return "ERR";
-    }
-    else if (!auction_status) {
-        if (verbose)    printf(AUCTION_ALREADY_CLOSED, AID);
-        return "END";
-    }
-
-    if (create_auction_end_file(AID) == -1) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
-        return "ERR";
-    }
-
-    if (verbose)    printf(SUCCESSFUL_AUCTION_CLOSING, AID);
-    return "OK"; 
 }
 
 string myauctions(char arguments[]) {
@@ -638,6 +523,160 @@ string list_auctions(char arguments[]) {
     }
 }
 
+
+/*  +------------ TCP Commands ------------+ */
+
+string open_auction(int fd) {
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
+        timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
+
+    // Reading the parameters
+    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
+    
+    // Converting the numeric parameters
+    long start_value = atol(start_value_str);
+    long timeactive = atol(timeactive_str);
+    long file_size = atol(file_size_str);
+
+    // Reading the image
+    char image_buffer[IMAGE_BUFFER_SIZE];
+    char* image = (char*) malloc(sizeof(char)*file_size);
+    long bytes_read=0; 
+    int n; 
+    memset(image, 0, file_size);
+    while (bytes_read < file_size) {
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+        n = read(fd, image_buffer, n);
+        if (n < 0) {
+            printf(SOCKET_READING_ERROR, "TCP");
+            return "ERR";
+        }
+        memcpy(image+bytes_read, image_buffer, n);
+        bytes_read += n;
+    }
+
+    // Reading the '\n' character at the end
+    char read_char;
+    n = read(fd, &read_char, 1);
+    if (n < 0) {
+        printf(SOCKET_READING_ERROR, "TCP");
+        return "ERR";
+    }
+    if (read_char != '\n') {
+        printf(BADLY_FORMATTED_MESSAGE);
+        return "ERR";
+    }
+
+    /* ARGUMENT PROCESSING */
+    if ((start_value < 0) || (timeactive < 0)) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, NUMERIC_VALUES_ERROR);
+        return "NOK";
+    }
+
+    if (n_auctions == MAX_AUCTIONS) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, MAX_NUM_AUCTIONS_ERROR);
+        return "NOK";
+    }
+
+    if (is_user_logged_in(UID) < 0) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, USER_NOT_LOGGED_IN_ERROR);
+        return "NLG";
+    }
+
+    /* COMMAND EXECUTION */
+
+    (n_auctions)++;
+    int n_AID = n_auctions;
+    string s_AID = to_string(n_AID);
+    string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
+
+    // Create .txt on User directory
+    if (create_auction_dirs(AID, UID) == -1) {
+        printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
+        return "ERR";
+    }
+
+    // Create image
+    copy_image(AID, file_name, file_size, image_buffer, image);
+    free(image);
+
+    // Create Start file
+    create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
+    
+    if (verbose)    printf(SUCCESSFUL_AUCTION_OPENING, asset_name, AID.c_str());
+    return "OK " + AID;
+}
+
+string close_auction(int fd) {
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1];
+    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+
+    // Check arguments
+    if (is_user_logged_in(UID) < 0) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, USER_NOT_LOGGED_IN_ERROR);
+        return "NLG";
+    }
+
+    if (!does_auction_exist(AID)) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_NOT_FOUND_ERROR);
+        return "EAU";
+    }
+
+    if (!does_user_host_auction(AID, UID)) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, AUCTION_OWNER_ERROR);
+        return "EOW";
+    }
+
+    int auction_status = is_auction_ongoing(AID);
+    if (auction_status == -1) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
+        return "ERR";
+    }
+    else if (!auction_status) {
+        if (verbose)    printf(AUCTION_ALREADY_CLOSED, AID);
+        return "END";
+    }
+
+    if (create_auction_end_file(AID) == -1) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
+        return "ERR";
+    }
+
+    if (verbose)    printf(SUCCESSFUL_AUCTION_CLOSING, AID);
+    return "OK"; 
+}
+
+string show_asset(int fd, int *image_fd) {
+    char AID[MAX_DIGITS+1];
+
+    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+
+    string file_name = get_auction_file_name(AID);
+    if (file_name == "") {
+        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        return "NOK";
+    }
+
+    string response = "OK " + file_name;
+    string file_path = "./AUCTIONS/" + string(AID) + "/ASSET/" + file_name;
+    *image_fd = image_processing((char*) file_path.c_str(), &response);
+    if (*image_fd == -1) {
+        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        return "NOK";
+    }
+
+    return response;
+}
+
 string bid(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1], value_char[START_VALUE_SIZE+1];
 
@@ -678,26 +717,4 @@ string bid(int fd) {
 
     printf(SUCCESSFUL_BID, value);
     return "ACC";
-}
-
-string show_asset(int fd, int *image_fd) {
-    char AID[MAX_DIGITS+1];
-
-    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
-
-    string file_name = get_auction_file_name(AID);
-    if (file_name == "") {
-        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
-        return "NOK";
-    }
-
-    string response = "OK " + file_name;
-    string file_path = "./AUCTIONS/" + string(AID) + "/ASSET/" + file_name;
-    *image_fd = image_processing((char*) file_path.c_str(), &response);
-    if (*image_fd == -1) {
-        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
-        return "NOK";
-    }
-
-    return response;
 }
