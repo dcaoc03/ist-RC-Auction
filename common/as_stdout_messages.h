@@ -10,6 +10,9 @@
 #define SIGNAL_HANDLING_ERROR "SIGNAL ERROR: failed to set signal handler\n"
 #define IMAGE_FILE_DESCRIPTOR_ERROR "ERROR: failed to read from the designated file descriptor\n"
 
+#define REQUEST_RECEIVED "NEW %s REQUEST: sent by [%s:%s]\n"
+#define ISSUED_REQUEST "REQUEST COMMAND: %s\n"
+
 // Login Function
 #define SUCCESSFUL_LOGIN "Login %s: user succesfully logged in\n"
 #define UNSUCCESSFUL_LOGIN "Login %s: failed to login; %s\n"

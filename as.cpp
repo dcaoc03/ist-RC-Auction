@@ -146,6 +146,16 @@ int main(int argc, char** argv) {
                 printf(SOCKET_CREATION_ERROR, "TCP");
                 exit(1);
             }
+            if (verbose) {
+                int errcode;
+                char sender[NI_MAXHOST], port[NI_MAXSERV];
+
+                if((errcode=getnameinfo((struct sockaddr *)&addr_tcp, addrlen_tcp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST))!=0)
+                    fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
+                else
+                    printf(REQUEST_RECEIVED, "TCP", sender, port);
+
+            }
             if ((child_pid = fork()) == 0) { 
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
@@ -157,20 +167,24 @@ int main(int argc, char** argv) {
                 string response;
 
                 if (!strcmp(command_word, "OPA")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "open");
                     string status = open_auction(newfd);
                     response = "ROA " + status + "\n";
                 }
 
                 else if (!strcmp(command_word, "CLS")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "close");
                     string status = close_auction(newfd);
                     response = "RCL " + status + "\n";
                 }
 
                 else if (!strcmp(command_word, "BID")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "bid");
                     response = "RBD " + bid(newfd) + "\n";
                 }
 
                 else if (!strcmp(command_word, "SAS")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "show_asset");
                     response = "RSA " + show_asset(newfd, &asset_fd);
                     if (asset_fd < 0)
                         response += "\n";
@@ -207,33 +221,49 @@ int main(int argc, char** argv) {
             addrlen_udp = sizeof(addr_udp);
             bzero(buffer, sizeof(buffer)); 
             n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
+            
+            if (verbose) {
+                int errcode;
+                char sender[NI_MAXHOST],port[NI_MAXSERV];
 
+                if((errcode=getnameinfo((struct sockaddr *)&addr_udp, addrlen_udp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST | NI_DGRAM))!=0)
+                    fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
+                else
+                    printf(REQUEST_RECEIVED, "UDP", sender, port);
+
+            }
             /* REQUEST PROCESSING */
             string response;
             sscanf(buffer, "%s", command_word);
 
             if (!strcmp(command_word, "LIN")) {
+                if (verbose)    printf(ISSUED_REQUEST, "login");
                 string status = login(buffer);
                 response = "RLI " + status + "\n";
             }
 
             else if (!strcmp(command_word, "LOU")) {
+                if (verbose)    printf(ISSUED_REQUEST, "logout");
                 response = "RLO " + logout(buffer) + "\n";
             }
             
             else if (!strcmp(command_word, "UNR")) {
+                if (verbose)    printf(ISSUED_REQUEST, "unregister");
                 response = "RUR " + unregister(buffer) + "\n";
             }
 
             else if (!strcmp(command_word, "LMA")) {
+                if (verbose)    printf(ISSUED_REQUEST, "myauctions");
                 response = "RMA " + myauctions(buffer) + "\n";
             }
 
             else if (!strcmp(command_word, "LMB")) {
+                if (verbose)    printf(ISSUED_REQUEST, "mybids");
                 response = "RMB " + mybids(buffer) + "\n";
             }
 
             else if (!strcmp(command_word, "LST")) {
+                if (verbose)    printf(ISSUED_REQUEST, "list");
                 response = "RLS " + list_auctions(buffer) + "\n";
             }
             
@@ -241,7 +271,7 @@ int main(int argc, char** argv) {
 
             n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr_udp, addrlen_udp);
             if (n==-1) {
-                printf(SOCKET_WRITING_ERROR, "TCP");
+                if (verbose)    printf(SOCKET_WRITING_ERROR, "TCP");
                 exit(1);
             }
         } 
@@ -472,8 +502,7 @@ string mybids(char arguments[]) {           // Update to use file abstraction !!
         }
     }
     else {
-        if (verbose)
-            printf("%s: mybids; failed to locate user in the database\n", UID);
+        if (verbose)    printf("%s: mybids; failed to locate user in the database\n", UID);
         return "ERR";
     }
 }
@@ -499,8 +528,7 @@ string list_auctions(char arguments[]) {
         }
         closedir(auctions);
         if (auctions_list.empty()) {
-            if (verbose)
-                printf("%s: list; there are no auctions\n", UID);
+            if (verbose)    printf("%s: list; there are no auctions\n", UID);
             return "NOK";
         }
         string response = "";
@@ -508,8 +536,7 @@ string list_auctions(char arguments[]) {
             string AID = *it;
             int ongoing = is_auction_ongoing(AID);
             if (ongoing == -1) {
-                if (verbose)
-                    printf("%s: list; failed to read %s auction file\n", UID, AID.c_str());
+                if (verbose)    printf("%s: list; failed to read %s auction file\n", UID, AID.c_str());
                 return "ERR";
             }
             response += " " + AID + (ongoing ? " 1" : " 0");
@@ -517,8 +544,7 @@ string list_auctions(char arguments[]) {
         return "OK" + response + "\n";
     }
     else {
-        if (verbose)
-            printf("%s: list; failed to locate user in the database\n", UID);
+        if (verbose)    printf("%s: list; failed to locate user in the database\n", UID);
         return "ERR";
     }
 }
@@ -555,7 +581,7 @@ string open_auction(int fd) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
         n = read(fd, image_buffer, n);
         if (n < 0) {
-            printf(SOCKET_READING_ERROR, "TCP");
+            if (verbose)    printf(SOCKET_READING_ERROR, "TCP");
             return "ERR";
         }
         memcpy(image+bytes_read, image_buffer, n);
@@ -566,11 +592,11 @@ string open_auction(int fd) {
     char read_char;
     n = read(fd, &read_char, 1);
     if (n < 0) {
-        printf(SOCKET_READING_ERROR, "TCP");
+        if (verbose)    printf(SOCKET_READING_ERROR, "TCP");
         return "ERR";
     }
     if (read_char != '\n') {
-        printf(BADLY_FORMATTED_MESSAGE);
+        if (verbose)    printf(BADLY_FORMATTED_MESSAGE);
         return "ERR";
     }
 
@@ -599,7 +625,7 @@ string open_auction(int fd) {
 
     // Create .txt on User directory
     if (create_auction_dirs(AID, UID) == -1) {
-        printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
         return "ERR";
     }
 
@@ -662,7 +688,7 @@ string show_asset(int fd, int *image_fd) {
 
     string file_name = get_auction_file_name(AID);
     if (file_name == "") {
-        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
         return "NOK";
     }
 
@@ -670,7 +696,7 @@ string show_asset(int fd, int *image_fd) {
     string file_path = "./AUCTIONS/" + string(AID) + "/ASSET/" + file_name;
     *image_fd = image_processing((char*) file_path.c_str(), &response);
     if (*image_fd == -1) {
-        printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
         return "NOK";
     }
 
@@ -688,33 +714,33 @@ string bid(int fd) {
     long value = stol(value_char);
 
     if (!does_auction_exist(AID) || !is_auction_ongoing(AID)) {
-        printf(UNSUCCESSFUL_BID, value, AUCTION_NOT_ACTIVE_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, AUCTION_NOT_ACTIVE_ERROR);
         return "NOK";
     }
     if ((does_user_exist(UID) == NULL) || (is_user_logged_in(UID) < 0)) {
-        printf(UNSUCCESSFUL_BID, value, USER_NOT_LOGGED_IN_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, USER_NOT_LOGGED_IN_ERROR);
         return "NLG";
     }
     if (does_user_host_auction(AID, UID)) {
-        printf(UNSUCCESSFUL_BID, value, BID_IN_OWN_AUCTION_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, BID_IN_OWN_AUCTION_ERROR);
         return "ILG";
     }
     int is_valid_bid = get_highest_bid(AID, value);
     if (is_valid_bid == -1) {
-        printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
         return "ERR";
     }
     if (is_valid_bid == 0) {
-        printf(UNSUCCESSFUL_BID, value, BID_IS_NOT_VALID_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, BID_IS_NOT_VALID_ERROR);
         return "REF";
     }
     
     string value_str = string(START_VALUE_SIZE - to_string(value).length(), '0') + to_string(value);
     if (create_bid_files(UID, AID, value, value_str) < 0) {
-        printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
+        if (verbose)    printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);
         return "ERR";
     }
 
-    printf(SUCCESSFUL_BID, value);
+    if (verbose)    printf(SUCCESSFUL_BID, value);
     return "ACC";
 }
