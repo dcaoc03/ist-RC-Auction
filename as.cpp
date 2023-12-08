@@ -156,7 +156,10 @@ int main(int argc, char** argv) {
                     printf(REQUEST_RECEIVED, "TCP", sender, port);
 
             }
-            if ((child_pid = fork()) == 0) { 
+            child_pid = fork();
+            if (child_pid == -1) 
+                fprintf(stderr, CHILD_PROCESS_ERROR, strerror(errno));
+            else if (child_pid == 0) { 
                 close(fd_tcp); 
                 char command_word[COMMAND_WORD_SIZE+1];
                 int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
@@ -215,7 +218,6 @@ int main(int argc, char** argv) {
                 close(newfd); 
                 exit(0); 
             }
-
         }
         if (FD_ISSET(fd_udp, &fdset)) { 
             addrlen_udp = sizeof(addr_udp);
@@ -570,11 +572,11 @@ string open_auction(int fd) {
     long timeactive = atol(timeactive_str);
     long file_size = atol(file_size_str);
 
+    int n; 
     // Reading the image
-    char image_buffer[IMAGE_BUFFER_SIZE];
+    /*char image_buffer[IMAGE_BUFFER_SIZE];
     char* image = (char*) malloc(sizeof(char)*file_size);
     long bytes_read=0; 
-    int n; 
     memset(image, 0, file_size);
     while (bytes_read < file_size) {
         memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
@@ -586,19 +588,7 @@ string open_auction(int fd) {
         }
         memcpy(image+bytes_read, image_buffer, n);
         bytes_read += n;
-    }
-
-    // Reading the '\n' character at the end
-    char read_char;
-    n = read(fd, &read_char, 1);
-    if (n < 0) {
-        if (verbose)    printf(SOCKET_READING_ERROR, "TCP");
-        return "ERR";
-    }
-    if (read_char != '\n') {
-        if (verbose)    printf(BADLY_FORMATTED_MESSAGE);
-        return "ERR";
-    }
+    }*/
 
     /* ARGUMENT PROCESSING */
     if ((start_value < 0) || (timeactive < 0)) {
@@ -630,8 +620,23 @@ string open_auction(int fd) {
     }
 
     // Create image
-    copy_image(AID, file_name, file_size, image_buffer, image);
-    free(image);
+    if (copy_image(AID, file_name, file_size, fd) == -1) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, ASSET_CREATION_ERROR);
+        return "ERR";
+    }
+    // free(image);
+
+    // Reading the '\n' character at the end
+    char read_char;
+    n = read(fd, &read_char, 1);
+    if (n < 0) {
+        if (verbose)    printf(SOCKET_READING_ERROR, "TCP");
+        return "ERR";
+    }
+    if (read_char != '\n') {
+        if (verbose)    printf(BADLY_FORMATTED_MESSAGE);
+        return "ERR";
+    }
 
     // Create Start file
     create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
@@ -641,7 +646,7 @@ string open_auction(int fd) {
 }
 
 string close_auction(int fd) {
-    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1];
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1]; 
     if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";

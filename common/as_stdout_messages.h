@@ -9,6 +9,7 @@
 #define BADLY_FORMATTED_MESSAGE "PROTOCOL ERROR: received message is badly formatted\n"
 #define SIGNAL_HANDLING_ERROR "SIGNAL ERROR: failed to set signal handler\n"
 #define IMAGE_FILE_DESCRIPTOR_ERROR "ERROR: failed to read from the designated file descriptor\n"
+#define CHILD_PROCESS_ERROR "ERROR: failed to create child process: %s\n"
 
 #define REQUEST_RECEIVED "NEW %s REQUEST: sent by [%s:%s]\n"
 #define ISSUED_REQUEST "REQUEST COMMAND: %s\n"
@@ -45,6 +46,7 @@
 #define NUMERIC_VALUES_ERROR "numeric values must be positive or 0"
 #define MAX_NUM_AUCTIONS_ERROR "maximum number of auctions has been reached"
 #define AUCTION_DIRS_ERROR "something went wrong while creating the auction's directories"
+#define ASSET_CREATION_ERROR "something went wrong while creating the asset"
 
 // Close Auction Function
 #define SUCCESSFUL_AUCTION_CLOSING "Close Auction %s: auction ended successfully\n"

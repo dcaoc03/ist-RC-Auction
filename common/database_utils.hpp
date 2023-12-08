@@ -16,7 +16,7 @@ int logout_user(std::string user_id);
 int unregister_user(std::string user_id);
 time_t get_auction_start_and_end_fulltime(std::string AID, char mode);
 int create_auction_dirs(std::string AID, std::string UID);
-void copy_image(std::string AID, std::string file_name, long file_size, char* image_buffer, char* image);
+int copy_image(std::string AID, std::string file_name, long file_size, int socket_fd);
 void create_auction_start_file(std::string AID, std::string UID, std::string asset_name, std::string file_name, long start_value, long timeactive);
 int create_auction_end_file(std::string AID);
 std::list <std::string> get_hosted_auctions(std::string UID);

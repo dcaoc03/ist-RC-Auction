@@ -199,18 +199,22 @@ int create_auction_dirs(string AID, string UID) {
     return 0;
 }
 
-void copy_image(string AID, string file_name, long file_size, char* image_buffer, char* image) {
+int copy_image(string AID, string file_name, long file_size, int socket_fd) {
+    char image_buffer[IMAGE_BUFFER_SIZE];
     string image_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
     FILE* fd_image = fopen(image_name.c_str(), "w");
     long bytes_read = 0, n;
     while (bytes_read < file_size) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
         memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-        memcpy(image_buffer, image+bytes_read, n);
+        n = read(socket_fd, image_buffer, n);
+        if (n<0)    return -1;
         n = fwrite(image_buffer, 1, n, fd_image);
+        if (n<0)    return -1;
         bytes_read += n;
     }
     fclose(fd_image);
+    return 0;
 }
 
 void create_auction_start_file(string AID, string UID, string asset_name, string file_name, long start_value, long timeactive) {
