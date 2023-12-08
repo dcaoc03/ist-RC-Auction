@@ -47,20 +47,6 @@ void process_arguments(int argc, char** argv) {         // processes the argumen
     }
 }
 
-int count_auctions() {
-    int count = 0;
-    DIR* auctions_dir = opendir("./AUCTIONS");
-    struct dirent* entry;
-
-    if (auctions_dir == NULL)
-        return -1;
-
-    while ((entry = readdir(auctions_dir)) != NULL)
-        count++;
-
-    return count-2;         // The directory keeps the directories "." and ".."
-}
-
 int main(int argc, char** argv) {
     as_port = PORT;
 
@@ -129,16 +115,17 @@ int main(int argc, char** argv) {
     /* SET UP THE FDSET */
     FD_ZERO(&fdset);
 
+    /* SET UP AUCTION DATABASE*/
+    if (setup_auctions_dir() == -1) {
+        if (verbose)    printf(AUCTIONS_NOT_FOUND_ERROR);
+        exit(1);
+    }
+
     while(1) {
         FD_SET(fd_tcp, &fdset);
         FD_SET(fd_udp, &fdset);
 
         select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
-    
-        if ((n_auctions = count_auctions()) == -1) {
-            if (verbose)    printf(AUCTIONS_NOT_FOUND_ERROR);
-            return 1;
-        }
 
         if (FD_ISSET(fd_tcp, &fdset)) {
             addrlen_tcp = sizeof(addr_tcp);
@@ -596,7 +583,8 @@ string open_auction(int fd) {
         return "NOK";
     }
 
-    if (n_auctions == MAX_AUCTIONS) {
+    int n_AID = get_number_of_auctions();
+    if (n_AID == MAX_AUCTIONS) {
         if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, MAX_NUM_AUCTIONS_ERROR);
         return "NOK";
     }
@@ -608,8 +596,6 @@ string open_auction(int fd) {
 
     /* COMMAND EXECUTION */
 
-    (n_auctions)++;
-    int n_AID = n_auctions;
     string s_AID = to_string(n_AID);
     string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
 

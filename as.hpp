@@ -1,9 +1,6 @@
 #ifndef AS
 #define AS
 
-#define MAX_AUCTIONS 999
-#define MAX_DIGITS 3
-
 // UDP Commands
 
 std::string login(char* arguments);

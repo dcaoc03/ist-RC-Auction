@@ -10,11 +10,18 @@ int does_auction_exist(std::string AID);
 int does_user_host_auction(std::string AID, std::string UID);
 int is_auction_ongoing(std::string AID);
 
+
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
+
+/* ----------------- USER MANIPULATION FUNCTIONS ---------------- */
 int create_user(std::string user_id, char password[],bool create_directories);
 int logout_user(std::string user_id);
 int unregister_user(std::string user_id);
 time_t get_auction_start_and_end_fulltime(std::string AID, char mode);
+
+/* --------------- AUCTION MANIPULATION FUNCTIONS -------------- */
+int setup_auctions_dir();
+int get_number_of_auctions();
 int create_auction_dirs(std::string AID, std::string UID);
 int copy_image(std::string AID, std::string file_name, long file_size, int socket_fd);
 void create_auction_start_file(std::string AID, std::string UID, std::string asset_name, std::string file_name, long start_value, long timeactive);

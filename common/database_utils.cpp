@@ -94,7 +94,8 @@ int is_auction_ongoing(string AID) {
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
 
-// USER MANIPULATION FUNCTIONS
+/* ----------------- USER MANIPULATION FUNCTIONS ---------------- */
+
 int create_user_dirs(string user_id) {
     string dir_name = "./USERS/" + user_id;
     string hosted = dir_name + "/HOSTED";
@@ -156,7 +157,50 @@ int unregister_user(string user_id) {
     return 0;
 }
 
-// AUCTION MANIPULATION FUNCTIONS
+
+/* --------------- AUCTION MANIPULATION FUNCTIONS -------------- */
+
+int setup_auctions_dir() {int count = 0;
+    DIR* auctions_dir = opendir("./AUCTIONS");
+    struct dirent* entry;
+
+    if (auctions_dir == NULL)
+        return -1;
+
+    while ((entry = readdir(auctions_dir)) != NULL)
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, "NUM_AUCTIONS.txt"))
+            count++;
+
+    string num_auctions_file_name = "./AUCTIONS/NUM_AUCTIONS.txt";
+    FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "w+");
+    if (fprintf(fd_start_file, "%d", count) < 1) {
+        fclose(fd_start_file);
+        return -1;
+    }
+    fclose(fd_start_file);
+    return 0;
+}
+
+int get_number_of_auctions() {
+    string num_auctions_file_name = "./AUCTIONS/NUM_AUCTIONS.txt";
+    FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "r+");
+    int n_auctions;
+    if (fscanf(fd_start_file, "%d", &n_auctions) < 1) {
+        fclose(fd_start_file);
+        return -1;
+    }
+    if (n_auctions == MAX_AUCTIONS) {
+        fclose(fd_start_file);
+        return n_auctions;
+    }
+    n_auctions++;
+    fseek(fd_start_file, 0, SEEK_SET);
+    if (fprintf(fd_start_file, "%d", n_auctions) < 1) {
+        fclose(fd_start_file);
+        return -1;
+    }
+    return n_auctions;
+}
 
 // Mode 's' to get start_fulltime and 'e' to get the predicted_ending_time, returns -1 in case of fscanf error
 time_t get_auction_start_and_end_fulltime(string AID, char mode) {
@@ -270,10 +314,10 @@ list <string> get_hosted_auctions(string UID) {
 
 // Returns 0 if new bid is higher, 0 if not, -1 in case of error
 int get_highest_bid(string AID, long new_bid) {
-    int highest_bid;
+    long highest_bid;
     string max_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/MAX_BID.txt";
     FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "r+");
-    if (fscanf(fd_max_bid_file, "%d", &highest_bid) < 1) {
+    if (fscanf(fd_max_bid_file, "%ld", &highest_bid) < 1) {
         fclose(fd_max_bid_file);
         return -1;
     }
