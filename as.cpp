@@ -28,7 +28,8 @@ using namespace std;
 string as_port;
 bool verbose=false;
 
-int n_auctions=0;
+int fd_udp_global=-1, fd_tcp_global=-1;
+int end_as=0;
 
 
 
@@ -37,6 +38,16 @@ int n_auctions=0;
     |          MAIN FUNCTIONS          |
     |                                  |
     +----------------------------------+  */
+
+static void end_AS(int sig) {
+    end_as = 1;
+    close(fd_tcp_global);
+    close(fd_udp_global);
+    unlink_semaphores();
+
+    printf(AS_CLOSING_MESSAGE);
+    exit(0);
+}
 
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
     for (int i=1; i < argc; i++) {
@@ -77,6 +88,18 @@ int main(int argc, char** argv) {
         printf(SIGNAL_HANDLING_ERROR);
         exit(1);
     }
+    if (signal(SIGINT, end_AS) == SIG_ERR){
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
+    if (signal(SIGTSTP, end_AS) == SIG_ERR){
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
+    if (signal(SIGTERM, end_AS) == SIG_ERR){
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
 
     /* -----TODO-----: kill all child processes smoothly */
 
@@ -96,6 +119,7 @@ int main(int argc, char** argv) {
     if (n==-1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
     
     if (listen(fd_tcp, 5) == -1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
+    fd_tcp_global = fd_tcp;
     
     /* CREATE UDP SOCKET */
 
@@ -111,6 +135,7 @@ int main(int argc, char** argv) {
 
     n=bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen);
     if (n == -1)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
+    fd_udp_global = fd_udp;
 
     /* SET UP THE FDSET */
     FD_ZERO(&fdset);
@@ -121,7 +146,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    while(1) {
+    while(!end_as) {
         FD_SET(fd_tcp, &fdset);
         FD_SET(fd_udp, &fdset);
 
@@ -205,6 +230,7 @@ int main(int argc, char** argv) {
                 close(newfd); 
                 exit(0); 
             }
+            close(newfd);
         }
         if (FD_ISSET(fd_udp, &fdset)) { 
             addrlen_udp = sizeof(addr_udp);
@@ -265,6 +291,11 @@ int main(int argc, char** argv) {
             }
         } 
     }
+
+    close(fd_tcp);
+    close(fd_udp);
+
+    printf(AS_CLOSING_MESSAGE);
 
     return 0;
 }

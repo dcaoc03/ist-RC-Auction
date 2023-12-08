@@ -1,6 +1,10 @@
 #ifndef DATABASE_UTILS
 #define DATABASE_UTILS
 
+/*-------------------- AS CLOSING FUNCTIONS --------------------- */
+
+void unlink_semaphores();
+
 /* ---------------------- BINARY FUNCTIONS ---------------------- */
 DIR* does_user_exist(std::string user_id);
 int is_user_logged_in(std::string user_ID);

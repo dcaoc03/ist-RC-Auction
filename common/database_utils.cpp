@@ -20,6 +20,19 @@
 
 using namespace std;
 
+/*-------------------- AS CLOSING FUNCTIONS --------------------- */
+
+void unlink_semaphores() {
+    DIR* auctions_dir = opendir("./AUCTIONS");
+    struct dirent* entry;
+    while ((entry = readdir(auctions_dir)) != NULL)
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME)) {
+            string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + string(entry->d_name);
+            sem_unlink(individual_auction_semaphore_name.c_str());
+        }
+
+}
+
 /* ---------------------- BINARY FUNCTIONS ---------------------- */
 
 DIR* does_user_exist(string user_id) {

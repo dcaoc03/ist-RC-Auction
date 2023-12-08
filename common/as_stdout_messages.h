@@ -10,6 +10,7 @@
 #define SIGNAL_HANDLING_ERROR "SIGNAL ERROR: failed to set signal handler\n"
 #define IMAGE_FILE_DESCRIPTOR_ERROR "ERROR: failed to read from the designated file descriptor\n"
 #define CHILD_PROCESS_ERROR "ERROR: failed to create child process: %s\n"
+#define AS_CLOSING_MESSAGE " AS closed successfully\n"
 
 #define REQUEST_RECEIVED "NEW %s REQUEST: sent by [%s:%s]\n"
 #define ISSUED_REQUEST "REQUEST COMMAND: %s\n"
