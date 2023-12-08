@@ -5,12 +5,18 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <semaphore.h>
+#include <fcntl.h> 
 
 #include <string>
 #include <list>
 
 #include "database_utils.hpp"
 #include "constants.h"
+
+#define NUM_AUCTIONS_FILE_NAME "NUM_AUCTIONS.txt"
+#define AUCTIONS_SEMAPHORE_NAME "/AUCTION_SEMAPHORE"
+#define INDIVIDUAL_AUCTION_SEMAPHORE_NAME "/AUCTION_SEMPAHORE_"
 
 using namespace std;
 
@@ -79,17 +85,33 @@ int does_user_host_auction(string AID, string UID) {
 // Returns 1 if is ongoing, 0 otherwise, -1 if error
 int is_auction_ongoing(string AID) {
     string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
-    if (access(auction_end_file.c_str(), F_OK) == 0)
+
+    // Initialize the semaphore
+    string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + AID;
+    sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
+
+    if (access(auction_end_file.c_str(), F_OK) == 0) {
+        sem_post(sem); sem_close(sem);
         return 0;
+    }
     
     time_t predicted_ending_time = get_auction_start_and_end_fulltime(AID, 'e');
-    if (predicted_ending_time == -1)
+    if (predicted_ending_time == -1) {
+        sem_post(sem); sem_close(sem);
         return -1;
+    }
     time_t current_time = time(NULL);
-    if (predicted_ending_time > current_time)
+    if (predicted_ending_time > current_time) {
+        sem_post(sem); sem_close(sem);
         return 1;
-    else 
+    }
+    else {
+        if (create_auction_end_file(AID) == -1)     return -1;
+        sem_post(sem); sem_close(sem);
         return 0;
+    }
 }
 
 /* ---------------------- ACTION FUNCTIONS ---------------------- */
@@ -168,37 +190,51 @@ int setup_auctions_dir() {int count = 0;
         return -1;
 
     while ((entry = readdir(auctions_dir)) != NULL)
-        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, "NUM_AUCTIONS.txt"))
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
             count++;
 
-    string num_auctions_file_name = "./AUCTIONS/NUM_AUCTIONS.txt";
+    string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "w+");
     if (fprintf(fd_start_file, "%d", count) < 1) {
         fclose(fd_start_file);
         return -1;
     }
     fclose(fd_start_file);
+
+    // Initialize the semaphore
+    sem_t *sem = sem_open(AUCTIONS_SEMAPHORE_NAME, O_CREAT | O_EXCL, 0666, 1);
+    sem_close(sem);
     return 0;
 }
 
 int get_number_of_auctions() {
-    string num_auctions_file_name = "./AUCTIONS/NUM_AUCTIONS.txt";
+    string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "r+");
+
+    // Initialize the semaphore
+    sem_t* sem = sem_open(AUCTIONS_SEMAPHORE_NAME, O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
+
     int n_auctions;
     if (fscanf(fd_start_file, "%d", &n_auctions) < 1) {
         fclose(fd_start_file);
+        sem_post(sem); sem_close(sem);
         return -1;
     }
     if (n_auctions == MAX_AUCTIONS) {
         fclose(fd_start_file);
+        sem_post(sem); sem_close(sem);
         return n_auctions;
     }
     n_auctions++;
     fseek(fd_start_file, 0, SEEK_SET);
     if (fprintf(fd_start_file, "%d", n_auctions) < 1) {
         fclose(fd_start_file);
+        sem_post(sem); sem_close(sem);
         return -1;
     }
+    sem_post(sem); sem_close(sem);
     return n_auctions;
 }
 
@@ -240,6 +276,13 @@ int create_auction_dirs(string AID, string UID) {
     if (mkdir(asset_dir.c_str(), S_IRWXU) == -1) {
         return -1;
     }
+
+    // Initialize the semaphore
+    string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + AID;
+    sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_CREAT, 0666, 1);
+    if (sem == SEM_FAILED)  return -1;
+    sem_close(sem);
+
     return 0;
 }
 
@@ -316,18 +359,29 @@ list <string> get_hosted_auctions(string UID) {
 int get_highest_bid(string AID, long new_bid) {
     long highest_bid;
     string max_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/MAX_BID.txt";
+
+    // Initialize the semaphore
+    string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + AID;
+    sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
+
     FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "r+");
     if (fscanf(fd_max_bid_file, "%ld", &highest_bid) < 1) {
         fclose(fd_max_bid_file);
+        sem_post(sem); sem_close(sem);
         return -1;
     }
     fclose(fd_max_bid_file);
-    if (new_bid <= highest_bid) 
+    if (new_bid <= highest_bid) {
+        sem_post(sem); sem_close(sem);
         return 0;
+    }
     else {
         FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "w");
         fprintf(fd_max_bid_file, "%ld", new_bid);
         fclose(fd_max_bid_file);
+        sem_post(sem); sem_close(sem);
         return 1;
     }
 
