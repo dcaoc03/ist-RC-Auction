@@ -282,6 +282,11 @@ int main(int argc, char** argv) {
                 response = "RLS " + list_auctions(buffer) + "\n";
             }
             
+            else if (!strcmp(command_word, "SRC")) {
+                if (verbose)    printf(ISSUED_REQUEST, "show_record");
+                response = "RRC " + show_record(buffer) + "\n";
+            }
+            
             const char* response2 = response.c_str();
 
             n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr_udp, addrlen_udp);
@@ -569,6 +574,20 @@ string list_auctions(char arguments[]) {
     }
 }
 
+string show_record(char arguments[]) {
+    char AID[MAX_DIGITS+1];
+    sscanf(arguments, "%*s %s", AID);
+
+    if (!does_auction_exist(AID)) {
+        printf(UNSUCCESSFUL_SHOW_RECORD, AID, AUCTION_NOT_FOUND_ERROR);
+        return "NOK";
+    }
+
+    string auction_info = get_auction_info(AID);
+    if (auction_info == "") return "ERR";
+
+    return "OK " + auction_info;
+}
 
 /*  +------------ TCP Commands ------------+ */
 

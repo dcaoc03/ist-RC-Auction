@@ -62,5 +62,7 @@
 #define SUCCESSFUL_SHOW_ASSET_USER "Asset %s successfully saved in directory %s\n"
 #define GENERIC_SHOW_ASSET_ERROR "ERROR: something wrong happened while getting the asset\n"
 
+// Show Record Function
+#define UNSUCCESSFUL_SHOW_RECORD_USER "Auction %s does not exist\n"
 
 #endif

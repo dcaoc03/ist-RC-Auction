@@ -81,4 +81,7 @@
 #define ASSET_NOT_FOUND_ERROR "couldn't find requested asset"
 #define GENERIC_SHOW_ASSET_ERROR "something wrong happened while getting the asset"
 
+// Show Record Function
+#define UNSUCCESSFUL_SHOW_RECORD "Show Record %s: failed to show record; %s\n"
+
 #endif

@@ -9,6 +9,7 @@ std::string unregister(char* arguments);
 std::string myauctions(char* arguments);
 std::string mybids(char* arguments);
 std::string list_auctions(char* arguments);
+std::string show_record(char* arguments);
 
 
 // TCP Commands

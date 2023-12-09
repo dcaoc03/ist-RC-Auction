@@ -20,6 +20,8 @@
 
 using namespace std;
 
+/* TODO!!!!!!!!!!!!!!!!!: Function whcih removes users, auctions and bids (directories) in case of errors */
+
 /*-------------------- AS CLOSING FUNCTIONS --------------------- */
 
 void unlink_semaphores() {
@@ -441,4 +443,17 @@ string get_auction_file_name(string AID) {
     }
     closedir(auction_asset_dir);
     return file_name;
+}
+
+string get_auction_info(string AID) {
+    string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
+    FILE* fd_start_file = fopen(start_file_name.c_str(), "r");
+
+    char UID[UID_SIZE+1], asset_name[ASSET_NAME_SIZE], file_name[FILE_NAME_SIZE], start_value[START_VALUE_SIZE], start_date[20], start_hours[20];
+    long start_fulltime;
+    if (fscanf(fd_start_file, "%s %s %s %s %*s %s %s %ld", UID, asset_name, file_name, start_value, start_date, start_hours, &start_fulltime) < 0)
+        return "";
+    
+    time_t current_time = time(NULL);
+    return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + to_string(current_time-start_fulltime);
 }

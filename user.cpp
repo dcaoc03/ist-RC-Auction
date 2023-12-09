@@ -120,6 +120,8 @@ int main(int argc, char** argv) {
                 bid(command_buffer);
             else if (!strcmp(command_word, "show_asset") || !strcmp(command_word, "sa"))
                 show_asset(command_buffer);
+            else if (!strcmp(command_word, "show_record") || !strcmp(command_word, "sr"))
+                show_record(command_buffer);
         }
         
     }
@@ -271,6 +273,26 @@ void list_auctions() {
     }
 }
 
+void show_record(char arguments[]) {
+    char AID[MAX_DIGITS+1];
+    sscanf(arguments, "%*s %s", AID);
+
+    char message[BUFFER_SIZE];
+    sprintf(message, "SRC %s\n", AID);
+
+    string request_result = UDPclient(message, sizeof(message));
+    if (request_result == "ERR")
+        return;
+    else {
+        char response[BUFFER_SIZE];
+        sscanf(request_result.c_str(), "%*s %s", response);
+        if (!strcmp(response, "NOK"))
+            printf(UNSUCCESSFUL_SHOW_RECORD_USER, AID);
+        else if (!strcmp(response, "OK")) {
+            printf("received : %s\n", request_result.c_str());
+        }
+    }
+}
 
 /*  +------------ TCP Commands ------------+ */
 

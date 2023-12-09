@@ -14,7 +14,7 @@ void unregister();
 void myauctions();
 void mybids();
 void list_auctions();
-void show_record();
+void show_record(char* arguments);
 
 
 // TCP Commands
