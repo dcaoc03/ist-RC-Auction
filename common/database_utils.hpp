@@ -30,7 +30,7 @@ int create_auction_dirs(std::string AID, std::string UID);
 int copy_image(std::string AID, std::string file_name, long file_size, int socket_fd);
 void create_auction_start_file(std::string AID, std::string UID, std::string asset_name, std::string file_name, long start_value, long timeactive);
 int create_auction_end_file(std::string AID);
-std::list <std::string> get_hosted_auctions(std::string UID);
+std::list <std::string> get_hosted_auctions_or_bids(std::string UID, char mode);
 int get_highest_bid(std::string AID, long new_bid);
 int create_bid_files(std::string UID, std::string AID, long value, std::string value_str);
 std::string get_auction_file_name(std::string AID);

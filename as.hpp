@@ -6,8 +6,7 @@
 std::string login(char* arguments);
 std::string logout(char* arguments);
 std::string unregister(char* arguments);
-std::string myauctions(char* arguments);
-std::string mybids(char* arguments);
+std::string myauctions_or_mybids(char* arguments, char mode);
 std::string list_auctions(char* arguments);
 std::string show_record(char* arguments);
 

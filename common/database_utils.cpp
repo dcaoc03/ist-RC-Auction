@@ -27,6 +27,7 @@ using namespace std;
 void unlink_semaphores() {
     DIR* auctions_dir = opendir("./AUCTIONS");
     struct dirent* entry;
+    sem_unlink(AUCTIONS_SEMAPHORE_NAME);
     while ((entry = readdir(auctions_dir)) != NULL)
         if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME)) {
             string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + string(entry->d_name);
@@ -205,8 +206,15 @@ int setup_auctions_dir() {int count = 0;
         return -1;
 
     while ((entry = readdir(auctions_dir)) != NULL)
-        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME)) {
             count++;
+
+            // Initialize the individual semaphores
+            string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + string(entry->d_name);
+            sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_CREAT, 0666, 1);
+            if (sem == SEM_FAILED)  return -1;
+            sem_close(sem);
+        }
 
     string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "w+");
@@ -357,17 +365,23 @@ int create_auction_end_file(string AID) {
     return 0;
 }
 
-list <string> get_hosted_auctions(string UID) {
-    string hosted_dir = "./USERS/" + string(UID) + "/HOSTED";
-    DIR* hosted = opendir(hosted_dir.c_str());
-    list <string> hosted_list;
+// mode == 'a' -> returns the user's hosted auctions
+// mode == 'b' -> returns the auctions where the user has put a bid
+// mode == 'l' -> returns all auctions
+list <string> get_hosted_auctions_or_bids(string UID, char mode) {
+    string desired_dir;
+    if (mode == 'a')    desired_dir = "./USERS/" + string(UID) + "/HOSTED";
+    else if (mode == 'b')    desired_dir = "./USERS/" + string(UID) + "/BIDDED";
+    else if (mode == 'l')    desired_dir = "./AUCTIONS/";
+    DIR* dir = opendir(desired_dir.c_str());
+    list <string> user_list;
     struct dirent* entry;
-    while ((entry = readdir(hosted)) != NULL) {
-        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
-            hosted_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
+            user_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
     }
-    closedir(hosted);
-    return hosted_list;
+    closedir(dir);
+    return user_list;
 }
 
 // Returns 0 if new bid is higher, 0 if not, -1 in case of error

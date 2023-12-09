@@ -269,12 +269,12 @@ int main(int argc, char** argv) {
 
             else if (!strcmp(command_word, "LMA")) {
                 if (verbose)    printf(ISSUED_REQUEST, "myauctions");
-                response = "RMA " + myauctions(buffer) + "\n";
+                response = "RMA " + myauctions_or_mybids(buffer, 'a') + "\n";
             }
 
             else if (!strcmp(command_word, "LMB")) {
                 if (verbose)    printf(ISSUED_REQUEST, "mybids");
-                response = "RMB " + mybids(buffer) + "\n";
+                response = "RMB " + myauctions_or_mybids(buffer, 'b') + "\n";
             }
 
             else if (!strcmp(command_word, "LST")) {
@@ -444,7 +444,12 @@ string unregister(char arguments[]) {
     }
 }
 
-string myauctions(char arguments[]) {
+string myauctions_or_mybids(char arguments[], char mode) {
+    if ((mode != 'a') && (mode != 'b')) {
+        printf(NON_EXISTING_MODE_ERROR);
+        return "ERR";
+    }
+
     char UID[UID_SIZE+1];
     sscanf(arguments, "%*s %s", UID);
     string str_UID(UID);
@@ -455,21 +460,24 @@ string myauctions(char arguments[]) {
     if (dir) {
         closedir(dir);
         if (is_user_logged_in(UID) == -1) {
-            if (verbose)    printf(UNSUCCESSFUL_MY_AUCTIONS, UID, USER_NOT_LOGGED_IN_ERROR);
+            if (verbose && (mode == 'a'))    printf(UNSUCCESSFUL_MY_AUCTIONS, UID, USER_NOT_LOGGED_IN_ERROR);
+            if (verbose && (mode == 'b'))    printf(UNSUCCESSFUL_MY_BIDS, UID, USER_NOT_LOGGED_IN_ERROR);
             return "NLG";
         }
         else {
-            list <string> hosted_list = get_hosted_auctions(UID);
-            if (hosted_list.empty()) {
-                if (verbose)    printf(USER_HAS_NO_ONGOING_AUCTIONS, UID);
+            list <string> user_list = get_hosted_auctions_or_bids(UID, mode);
+            if (user_list.empty()) {
+                if (verbose && (mode == 'a'))    printf(USER_HAS_NO_ONGOING_AUCTIONS, UID);
+                if (verbose && (mode == 'b'))    printf(USER_HAS_NO_ONGOING_BIDS, UID);
                 return "NOK";
             }
             string response = "";
-            for (list<string>::iterator it = hosted_list.begin(); it != hosted_list.end(); it++) {
+            for (list<string>::iterator it = user_list.begin(); it != user_list.end(); it++) {
                 string AID = *it;
                 int ongoing = is_auction_ongoing(AID);
                 if (ongoing == -1) {
-                    if (verbose)    printf(UNSUCCESSFUL_MY_AUCTIONS, UID,GENERIC_MY_AUCTIONS_ERROR);
+                    if (verbose && (mode == 'a'))    printf(UNSUCCESSFUL_MY_AUCTIONS, UID, GENERIC_MY_AUCTIONS_ERROR);
+                    if (verbose && (mode == 'b'))    printf(UNSUCCESSFUL_MY_BIDS, UID, GENERIC_MY_BIDS_ERROR);
                     return "ERR";
                 }
                 response += " " + AID + (ongoing ? " 1" : " 0");
@@ -478,100 +486,31 @@ string myauctions(char arguments[]) {
         }
     }
     else {
-        if (verbose)    printf(UNSUCCESSFUL_MY_AUCTIONS, UID, USER_NOT_REGISTERED_ERROR);
+        if (verbose && (mode == 'a'))    printf(UNSUCCESSFUL_MY_AUCTIONS, UID, USER_NOT_REGISTERED_ERROR);
+        if (verbose && (mode == 'b'))    printf(UNSUCCESSFUL_MY_BIDS, UID, USER_NOT_REGISTERED_ERROR);
         return "ERR";
     }
 
 }
 
-string mybids(char arguments[]) {           // Update to use file abstraction !!!!!!!
-    char UID[UID_SIZE+1];
-    sscanf(arguments, "%*s %s", UID);
-    string str_UID(UID);
-
-    /* COMMAND EXECUTION */
-
-    DIR* dir = does_user_exist(UID);
-    if (dir) {
-        closedir(dir);
-        if (is_user_logged_in(UID) == -1) {
-            if (verbose)    printf(UNSUCCESSFUL_MY_BIDS, UID, USER_NOT_LOGGED_IN_ERROR);
-            return "NLG";
-        }
-        else {
-            string bids_dir = "./USERS/" + string(UID) + "/BIDDED";
-            DIR* bids = opendir(bids_dir.c_str());
-            list <string> bids_list;
-            struct dirent* entry;
-            while ((entry = readdir(bids)) != NULL) {
-                if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
-                    bids_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
-            }
-            closedir(bids);
-            if (bids_list.empty()) {
-                if (verbose)    printf(USER_HAS_NO_ONGOING_BIDS, UID);
-                return "NOK";
-            }
-            string auc_dir = "./AUCTIONS/";
-            string response = "";
-            for (list<string>::iterator it = bids_list.begin(); it != bids_list.end(); it++) {
-                string AID = *it;
-                int ongoing = is_auction_ongoing(AID);
-                if (ongoing == -1) {
-                    if (verbose)    printf(UNSUCCESSFUL_MY_BIDS, UID, GENERIC_MY_BIDS_ERROR);
-                    return "ERR";
-                }
-                response += " " + AID + (ongoing ? " 1" : " 0");
-            }
-            return "OK" + response;
-        }
-    }
-    else {
-        if (verbose)    printf("%s: mybids; failed to locate user in the database\n", UID);
-        return "ERR";
-    }
-}
 
 string list_auctions(char arguments[]) {
-    char UID[UID_SIZE+1];
-    sscanf(arguments, "%*s %s", UID);
-    string str_UID(UID);
-
-    /* COMMAND EXECUTION */
-
-    string dir_name = "./USERS/" + str_UID;
-    DIR* dir = opendir(dir_name.c_str());
-    if (dir) {
-        closedir(dir);
-        string auctions_dir = "./AUCTIONS/";
-        DIR* auctions = opendir(auctions_dir.c_str());
-        list <string> auctions_list;
-        struct dirent* entry;
-        while ((entry = readdir(auctions)) != NULL) {
-            if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
-                auctions_list.push_back(string(entry->d_name));
-        }
-        closedir(auctions);
-        if (auctions_list.empty()) {
-            if (verbose)    printf("%s: list; there are no auctions\n", UID);
-            return "NOK";
-        }
-        string response = "";
-        for (list<string>::iterator it = auctions_list.begin(); it != auctions_list.end(); it++) {
-            string AID = *it;
-            int ongoing = is_auction_ongoing(AID);
-            if (ongoing == -1) {
-                if (verbose)    printf("%s: list; failed to read %s auction file\n", UID, AID.c_str());
-                return "ERR";
-            }
-            response += " " + AID + (ongoing ? " 1" : " 0");
-        }
-        return "OK" + response + "\n";
+    list <string> auctions_list = get_hosted_auctions_or_bids("", 'l');
+    if (auctions_list.empty()) {
+        if (verbose)    printf(NO_AUCTIONS);
+        return "NOK";
     }
-    else {
-        if (verbose)    printf("%s: list; failed to locate user in the database\n", UID);
-        return "ERR";
+    string response = "";
+    for (list<string>::iterator it = auctions_list.begin(); it != auctions_list.end(); it++) {
+        string AID = *it;
+        int ongoing = is_auction_ongoing(AID);
+        if (ongoing == -1) {
+            if (verbose)    printf(UNSUCCESSFUL_LIST, GENERIC_LIST_ERROR);
+            return "ERR";
+        }
+        response += " " + AID + (ongoing ? " 1" : " 0");
     }
+    return "OK" + response + "\n";
 }
 
 string show_record(char arguments[]) {

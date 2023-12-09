@@ -58,15 +58,21 @@
 #define AUCTION_OWNER_ERROR "user is not the owner of the auction"
 #define GENERIC_CLOSE_AUCTION_ERROR "something wrong happened while closing the auction"
 
-// My Auctions Function
+// My Auctions and My Bids Function
 #define UNSUCCESSFUL_MY_AUCTIONS "My Auctions %s: failed to execute command; %s\n"
 #define USER_HAS_NO_ONGOING_AUCTIONS "My Auctions %s: user has no ongoing auctions\n"
 #define GENERIC_MY_AUCTIONS_ERROR "something wrong happened while reading an auction file"
 
-// My Bids Function
 #define UNSUCCESSFUL_MY_BIDS "My Bids %s: failed to execute command; %s\n"
 #define USER_HAS_NO_ONGOING_BIDS "My Bids %s: user has placed no bids on ongoing auctions\n"
 #define GENERIC_MY_BIDS_ERROR "something wrong happened while reading an auction file"
+
+#define NON_EXISTING_MODE_ERROR "ERROR: tried to execute a function using a non existing mode\n"
+
+// List Function
+#define NO_AUCTIONS "List: no auctions have been made yet\n"
+#define UNSUCCESSFUL_LIST "List: command failed, %s\n"
+#define GENERIC_LIST_ERROR "something wrong happened while listing the auctions"
 
 // Bid Function
 #define SUCCESSFUL_BID "Bid %ld: bid made successfully\n"
