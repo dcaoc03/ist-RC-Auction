@@ -173,6 +173,7 @@ int main(int argc, char** argv) {
                 fprintf(stderr, CHILD_PROCESS_ERROR, strerror(errno));
             else if (child_pid == 0) { 
                 close(fd_tcp); 
+                close(fd_udp);
                 char command_word[COMMAND_WORD_SIZE+1];
                 int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
 
@@ -588,12 +589,6 @@ string open_auction(int fd) {
     string s_AID = to_string(n_AID);
     string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
 
-    // Create .txt on User directory
-    if (create_auction_dirs(AID, UID) == -1) {
-        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
-        return "ERR";
-    }
-
     // Create image
     if (copy_image(AID, file_name, file_size, fd) == -1) {
         if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, ASSET_CREATION_ERROR);
@@ -613,8 +608,11 @@ string open_auction(int fd) {
         return "ERR";
     }
 
-    // Create Start file
-    create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
+    // Create Auction directory
+    if (create_auction(AID, UID, asset_name, file_name, start_value, timeactive) == -1) {
+        if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, AUCTION_DIRS_ERROR);
+        return "ERR";
+    }
     
     if (verbose)    printf(SUCCESSFUL_AUCTION_OPENING, asset_name, AID.c_str());
     return "OK " + AID;

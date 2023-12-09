@@ -22,7 +22,11 @@ using namespace std;
 
 /* TODO!!!!!!!!!!!!!!!!!: Function whcih removes users, auctions and bids (directories) in case of errors */
 
-/*-------------------- AS CLOSING FUNCTIONS --------------------- */
+/*  +--------------------------------------+
+    |                                      |
+    |         AS CLOSING FUNCTIONS         |
+    |                                      |
+    +--------------------------------------+  */
 
 void unlink_semaphores() {
     DIR* auctions_dir = opendir("./AUCTIONS");
@@ -36,7 +40,13 @@ void unlink_semaphores() {
 
 }
 
-/* ---------------------- BINARY FUNCTIONS ---------------------- */
+
+
+/*  +----------------------------------+
+    |                                  |
+    |         BINARY FUNCTIONS         |
+    |                                  |
+    +----------------------------------+  */
 
 DIR* does_user_exist(string user_id) {
     string dir_name = "./USERS/" + user_id;
@@ -130,7 +140,13 @@ int is_auction_ongoing(string AID) {
     }
 }
 
-/* ---------------------- ACTION FUNCTIONS ---------------------- */
+
+
+/*  +----------------------------------+
+    |                                  |
+    |         ACTION FUNCTIONS         |
+    |                                  |
+    +----------------------------------+  */
 
 /* ----------------- USER MANIPULATION FUNCTIONS ---------------- */
 
@@ -278,6 +294,29 @@ time_t get_auction_start_and_end_fulltime(string AID, char mode) {
         return start_fulltime+duration;
 }
 
+
+/* --------------- AUCTION CREATION FUNCTIONS -------------- */
+
+int copy_image(string AID, string file_name, long file_size, int socket_fd) {
+    char image_buffer[IMAGE_BUFFER_SIZE];
+    if (mkdir("./AUCTIONS/temp", S_IRWXU) == -1)
+        return -1;
+    string image_name = "./AUCTIONS/temp/" + file_name;
+    FILE* fd_image = fopen(image_name.c_str(), "w");
+    long bytes_read = 0, n;
+    while (bytes_read < file_size) {
+        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
+        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+        n = read(socket_fd, image_buffer, n);
+        if (n<0)    return -1;
+        n = fwrite(image_buffer, 1, n, fd_image);
+        if (n<0)    return -1;
+        bytes_read += n;
+    }
+    fclose(fd_image);
+    return 0;
+}
+
 int create_auction_dirs(string AID, string UID) {
     // Create .txt on User directory
     string owner_dir_name = "./USERS/" + string(UID);
@@ -309,21 +348,13 @@ int create_auction_dirs(string AID, string UID) {
     return 0;
 }
 
-int copy_image(string AID, string file_name, long file_size, int socket_fd) {
-    char image_buffer[IMAGE_BUFFER_SIZE];
-    string image_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
-    FILE* fd_image = fopen(image_name.c_str(), "w");
-    long bytes_read = 0, n;
-    while (bytes_read < file_size) {
-        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
-        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-        n = read(socket_fd, image_buffer, n);
-        if (n<0)    return -1;
-        n = fwrite(image_buffer, 1, n, fd_image);
-        if (n<0)    return -1;
-        bytes_read += n;
-    }
-    fclose(fd_image);
+int move_image(string file_name, string AID) {
+    string image_initial_name = "./AUCTIONS/temp/" + file_name;
+    string image_final_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
+    if (rename(image_initial_name.c_str(), image_final_name.c_str()) == -1)
+        return -1;
+    if (rmdir("./AUCTIONS/temp") < 0)
+        return -1;
     return 0;
 }
 
@@ -347,6 +378,15 @@ void create_auction_start_file(string AID, string UID, string asset_name, string
     fclose(fd_max_bid_file);
 }
 
+int create_auction(string AID, string UID, string asset_name, string file_name, long start_value, long timeactive) {
+    if (create_auction_dirs(AID,UID) == -1)
+        return -1;
+    create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
+    if (move_image(file_name, AID) == -1)
+        return -1;
+    return 0;
+}
+
 // Returns 0 if succsess, -1 in case of error
 int create_auction_end_file(string AID) {
     string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
@@ -365,24 +405,8 @@ int create_auction_end_file(string AID) {
     return 0;
 }
 
-// mode == 'a' -> returns the user's hosted auctions
-// mode == 'b' -> returns the auctions where the user has put a bid
-// mode == 'l' -> returns all auctions
-list <string> get_hosted_auctions_or_bids(string UID, char mode) {
-    string desired_dir;
-    if (mode == 'a')    desired_dir = "./USERS/" + string(UID) + "/HOSTED";
-    else if (mode == 'b')    desired_dir = "./USERS/" + string(UID) + "/BIDDED";
-    else if (mode == 'l')    desired_dir = "./AUCTIONS/";
-    DIR* dir = opendir(desired_dir.c_str());
-    list <string> user_list;
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
-            user_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
-    }
-    closedir(dir);
-    return user_list;
-}
+
+/* --------------- BID CREATION FUNCTIONS -------------- */
 
 // Returns 0 if new bid is higher, 0 if not, -1 in case of error
 int get_highest_bid(string AID, long new_bid) {
@@ -441,6 +465,33 @@ int create_bid_files(std::string UID, std::string AID, long value, string value_
     return 0;
 }
 
+
+
+/*  +----------------------------------+
+    |                                  |
+    |              GETTERS             |
+    |                                  |
+    +----------------------------------+  */
+
+// mode == 'a' -> returns the user's hosted auctions
+// mode == 'b' -> returns the auctions where the user has put a bid
+// mode == 'l' -> returns all auctions
+list <string> get_hosted_auctions_or_bids(string UID, char mode) {
+    string desired_dir;
+    if (mode == 'a')    desired_dir = "./USERS/" + string(UID) + "/HOSTED";
+    else if (mode == 'b')    desired_dir = "./USERS/" + string(UID) + "/BIDDED";
+    else if (mode == 'l')    desired_dir = "./AUCTIONS/";
+    DIR* dir = opendir(desired_dir.c_str());
+    list <string> user_list;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
+            user_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
+    }
+    closedir(dir);
+    return user_list;
+}
+
 string get_auction_file_name(string AID) {
     string file_name;
     if (!does_auction_exist(AID))
@@ -463,11 +514,15 @@ string get_auction_info(string AID) {
     string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "r");
 
-    char UID[UID_SIZE+1], asset_name[ASSET_NAME_SIZE], file_name[FILE_NAME_SIZE], start_value[START_VALUE_SIZE], start_date[20], start_hours[20];
+    char UID[UID_SIZE+1], asset_name[ASSET_NAME_SIZE], file_name[FILE_NAME_SIZE], start_value[START_VALUE_SIZE],
+    start_date[20], start_hours[20];
     long start_fulltime;
     if (fscanf(fd_start_file, "%s %s %s %s %*s %s %s %ld", UID, asset_name, file_name, start_value, start_date, start_hours, &start_fulltime) < 0)
         return "";
     
     time_t current_time = time(NULL);
-    return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + to_string(current_time-start_fulltime);
+    string s_active_time = to_string(current_time-start_fulltime);
+    string active_time = string(TIMEACTIVE_SIZE - s_active_time.length(), '0') + s_active_time;
+    
+    return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + active_time;
 }

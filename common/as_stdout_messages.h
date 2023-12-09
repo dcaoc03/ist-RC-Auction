@@ -46,8 +46,8 @@
 
 #define NUMERIC_VALUES_ERROR "numeric values must be positive or 0"
 #define MAX_NUM_AUCTIONS_ERROR "maximum number of auctions has been reached"
-#define AUCTION_DIRS_ERROR "something went wrong while creating the auction's directories"
 #define ASSET_CREATION_ERROR "something went wrong while creating the asset"
+#define AUCTION_DIRS_ERROR "something went wrong while creating the auction's directories"
 
 // Close Auction Function
 #define SUCCESSFUL_AUCTION_CLOSING "Close Auction %s: auction ended successfully\n"
