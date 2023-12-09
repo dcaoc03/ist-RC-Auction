@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
                 char command_word[COMMAND_WORD_SIZE+1];
                 int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
 
-                if (byte_reading(newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
+                if (byte_reading(NULL, newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
 
                 /* REQUEST PROCESSING */
                 string response;
@@ -236,7 +236,7 @@ int main(int argc, char** argv) {
         if (FD_ISSET(fd_udp, &fdset)) { 
             addrlen_udp = sizeof(addr_udp);
             bzero(buffer, sizeof(buffer)); 
-            n=recvfrom(fd_udp, buffer, 128, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
+            n=recvfrom(fd_udp, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
             
             if (verbose) {
                 int errcode;
@@ -250,7 +250,7 @@ int main(int argc, char** argv) {
             }
             /* REQUEST PROCESSING */
             string response;
-            sscanf(buffer, "%s", command_word);
+            if (byte_reading(buffer, -1, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
 
             if (!strcmp(command_word, "LIN")) {
                 if (verbose)    printf(ISSUED_REQUEST, "login");
@@ -315,11 +315,16 @@ int main(int argc, char** argv) {
 /*  +------------ UDP Commands ------------+ */
 
 string login(char arguments[]) {
-    char UID[UID_SIZE*2], password[PASSWORD_SIZE*2];
+    // ARGUMENT READING
+    char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
+    int bytes_read = COMMAND_WORD_SIZE+1, n;
 
-    sscanf(arguments, "%*s %s %s", UID, password);
+    if ((n = byte_reading(arguments+bytes_read, -1, UID, UID_SIZE, false, false)) == -1)   return "ERR";
+    bytes_read += n;
+    if ((n = byte_reading(arguments+bytes_read, -1, password, PASSWORD_SIZE, false, true)) == -1)   return "ERR";
+    bytes_read += n;
 
-    /* ARGUMENT PROCESSING*/
+    // ARGUMENT PROCESSING 
 
     if ((strlen(UID) != 6) || (strlen(password) != 8)) {
         if (verbose)        printf(UNSUCCESSFUL_LOGIN, UID, ARGUMENTS_WRONG_SIZE_ERROR);
@@ -384,8 +389,14 @@ string login(char arguments[]) {
 }
 
 string logout(char arguments[]) {
+    // ARGUMENT READING
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
-    sscanf(arguments, "%*s %s %s", UID, password);
+    int bytes_read = COMMAND_WORD_SIZE+1, n;
+
+    if ((n = byte_reading(arguments+bytes_read, -1, UID, UID_SIZE, false, false)) == -1)   return "ERR";
+    bytes_read += n;
+    if ((n = byte_reading(arguments+bytes_read, -1, password, PASSWORD_SIZE, false, true)) == -1)   return "ERR";
+    bytes_read += n;
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
@@ -415,8 +426,14 @@ string logout(char arguments[]) {
 }
 
 string unregister(char arguments[]) {
+    // ARGUMENT READING
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
-    sscanf(arguments, "%*s %s %s", UID, password);
+    int bytes_read = COMMAND_WORD_SIZE+1, n;
+
+    if ((n = byte_reading(arguments+bytes_read, -1, UID, UID_SIZE, false, false)) == -1)   return "ERR";
+    bytes_read += n;
+    if ((n = byte_reading(arguments+bytes_read, -1, password, PASSWORD_SIZE, false, true)) == -1)   return "ERR";
+    bytes_read += n;
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
@@ -446,13 +463,18 @@ string unregister(char arguments[]) {
 }
 
 string myauctions_or_mybids(char arguments[], char mode) {
+    // MODE CHECK
     if ((mode != 'a') && (mode != 'b')) {
         printf(NON_EXISTING_MODE_ERROR);
         return "ERR";
     }
 
+    // ARGUMENT READING
     char UID[UID_SIZE+1];
-    sscanf(arguments, "%*s %s", UID);
+    int bytes_read = COMMAND_WORD_SIZE+1, n;
+
+    if ((n = byte_reading(arguments+bytes_read, -1, UID, UID_SIZE, false, true)) == -1)   return "ERR";
+    bytes_read += n;
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
@@ -515,8 +537,12 @@ string list_auctions(char arguments[]) {
 }
 
 string show_record(char arguments[]) {
+    // ARGUMENT READING
     char AID[MAX_DIGITS+1];
-    sscanf(arguments, "%*s %s", AID);
+    int bytes_read = COMMAND_WORD_SIZE+1, n;
+
+    if ((n = byte_reading(arguments+bytes_read, -1, AID, MAX_DIGITS, false, true)) == -1)   return "ERR";
+    bytes_read += n;
 
     if (!does_auction_exist(AID)) {
         printf(UNSUCCESSFUL_SHOW_RECORD, AID, AUCTION_NOT_FOUND_ERROR);
@@ -536,13 +562,13 @@ string open_auction(int fd) {
         timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
 
     // Reading the parameters
-    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, asset_name, ASSET_NAME_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, start_value_str, START_VALUE_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, timeactive_str, TIMEACTIVE_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, file_name, FILE_NAME_SIZE, true, false) == -1)   return "ERR";
-    if (byte_reading(fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, asset_name, ASSET_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, start_value_str, START_VALUE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, timeactive_str, TIMEACTIVE_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, file_name, FILE_NAME_SIZE, true, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, file_size_str, FILE_SIZE_SIZE, true, true) == -1)   return "ERR";
     
     // Converting the numeric parameters
     long start_value = atol(start_value_str);
@@ -620,9 +646,9 @@ string open_auction(int fd) {
 
 string close_auction(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1]; 
-    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
 
     // Check arguments
     if (is_user_logged_in(UID) < 0) {
@@ -662,7 +688,7 @@ string close_auction(int fd) {
 string show_asset(int fd, int *image_fd) {
     char AID[MAX_DIGITS+1];
 
-    if (byte_reading(fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
 
     string file_name = get_auction_file_name(AID);
     if (file_name == "") {
@@ -684,10 +710,10 @@ string show_asset(int fd, int *image_fd) {
 string bid(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1], value_char[START_VALUE_SIZE+1];
 
-    if (byte_reading(fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, AID, MAX_DIGITS, false, false) == -1)   return "ERR";
-    if (byte_reading(fd, value_char, START_VALUE_SIZE, true, true) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, false) == -1)   return "ERR";
+    if (byte_reading(NULL, fd, value_char, START_VALUE_SIZE, true, true) == -1)   return "ERR";
 
     long value = stol(value_char);
 

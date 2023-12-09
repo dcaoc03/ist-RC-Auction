@@ -377,15 +377,15 @@ void show_asset(char arguments[]) {
 
     // Complexity of reading the socket is made here
     char response_word[COMMAND_WORD_SIZE+1], status[COMMAND_WORD_SIZE+1];
-    if (byte_reading(socket_fd, response_word, COMMAND_WORD_SIZE, false, false))     printf(GENERIC_SHOW_ASSET_ERROR);
-    if (byte_reading(socket_fd, status, COMMAND_WORD_SIZE, true, false))             printf(GENERIC_SHOW_ASSET_ERROR);
+    if (byte_reading(NULL, socket_fd, response_word, COMMAND_WORD_SIZE, false, false))     printf(GENERIC_SHOW_ASSET_ERROR);
+    if (byte_reading(NULL, socket_fd, status, COMMAND_WORD_SIZE, true, false))             printf(GENERIC_SHOW_ASSET_ERROR);
 
     if (!strcmp(status, "ERR") || !strcmp(status, "NOK")) 
         printf(GENERIC_SHOW_ASSET_ERROR);
     else if (!strcmp(status, "OK")) {
         char file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
-        if (byte_reading(socket_fd, file_name, FILE_NAME_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
-        if (byte_reading(socket_fd, file_size_str, FILE_SIZE_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (byte_reading(NULL, socket_fd, file_name, FILE_NAME_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (byte_reading(NULL, socket_fd, file_size_str, FILE_SIZE_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
 
         long file_size = stol(file_size_str);
     
