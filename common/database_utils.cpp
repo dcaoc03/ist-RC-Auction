@@ -393,13 +393,15 @@ int create_auction_end_file(string AID) {
     FILE* fd_end_file = fopen(auction_end_file.c_str(), "w");
 
     time_t start_fulltime = get_auction_start_and_end_fulltime(AID, 's');
-    if (start_fulltime == -1)
+    time_t predicted_ending_time = get_auction_start_and_end_fulltime(AID, 'e');
+    if (predicted_ending_time == -1)
         return -1;
-    time_t end_fulltime = time(NULL);
+    time_t current_fulltime = time(NULL);
+    time_t end_fulltime = min(current_fulltime, predicted_ending_time);
     struct tm *end_date_time = localtime(&end_fulltime);
 
     fprintf(fd_end_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", end_date_time->tm_year+1900, end_date_time->tm_mon + 1, end_date_time->tm_mday,
-        end_date_time->tm_hour, end_date_time->tm_min, end_date_time->tm_sec, (end_fulltime - start_fulltime));
+        end_date_time->tm_hour, end_date_time->tm_min, end_date_time->tm_sec, (end_fulltime-start_fulltime));
 
     fclose(fd_end_file);
     return 0;

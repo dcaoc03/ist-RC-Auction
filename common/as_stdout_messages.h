@@ -14,6 +14,7 @@
 
 #define REQUEST_RECEIVED "NEW %s REQUEST: sent by [%s:%s]\n"
 #define ISSUED_REQUEST "REQUEST COMMAND: %s\n"
+#define UNKNOWN_REQUEST "ERROR: unknown request %s received\n"
 
 // Login Function
 #define SUCCESSFUL_LOGIN "Login %s: user succesfully logged in\n"

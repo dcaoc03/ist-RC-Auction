@@ -205,6 +205,11 @@ int main(int argc, char** argv) {
                     if (asset_fd < 0)
                         response += "\n";
                 }
+
+                else {
+                    if (verbose)    printf(UNKNOWN_REQUEST, command_word);
+                    response = "ERR\n";
+                }
             
                 
                 const char* response2 = response.c_str();
@@ -286,6 +291,11 @@ int main(int argc, char** argv) {
             else if (!strcmp(command_word, "SRC")) {
                 if (verbose)    printf(ISSUED_REQUEST, "show_record");
                 response = "RRC " + show_record(buffer) + "\n";
+            }
+
+            else {
+                if (verbose)    printf(UNKNOWN_REQUEST, command_word);
+                response = "ERR\n";
             }
             
             const char* response2 = response.c_str();

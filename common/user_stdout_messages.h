@@ -5,6 +5,7 @@
 
 #define LOGIN_FIRST "Please login first\n"
 #define ALREADY_LOGGED_IN "User already logged in\n"
+#define UNKNOWN_COMMAND_USER "ERROR: unknown command %s received\n"
 #define SOCKET_CREATION_ERROR "SOCKET ERROR: failed to initialize %s socket\n"
 #define SOCKET_READING_ERROR "SOCKET ERROR: failed to read from %s socket\n"
 #define SOCKET_WRITING_ERROR "SOCKET ERROR: failed to write to %s socket\n"

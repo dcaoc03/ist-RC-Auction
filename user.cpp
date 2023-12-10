@@ -122,6 +122,8 @@ int main(int argc, char** argv) {
                 show_asset(command_buffer);
             else if (!strcmp(command_word, "show_record") || !strcmp(command_word, "sr"))
                 show_record(command_buffer);
+            else
+                printf(UNKNOWN_COMMAND_USER, command_word);
         }
         
     }
@@ -360,7 +362,7 @@ void close_auction(char arguments[]) {
         if (!strcmp(response, "EAU"))        printf(USER_NOT_REGISTERED_ERROR_USER);
         if (!strcmp(response, "EOW"))        printf(UNALLOWED_AUCTION_CLOSING_USER, AID, user_ID.c_str());
         if (!strcmp(response, "END"))        printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);
-        else if (!strcmp(response, "ERR"))    printf(GENERIC_AUCTION_OPENING_ERROR_USER);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_AUCTION_CLOSING_ERROR_USER);
     }
      
 }
