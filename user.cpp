@@ -379,15 +379,15 @@ void show_asset(char arguments[]) {
 
     // Complexity of reading the socket is made here
     char response_word[COMMAND_WORD_SIZE+1], status[COMMAND_WORD_SIZE+1];
-    if (byte_reading(NULL, socket_fd, response_word, COMMAND_WORD_SIZE, false, false))     printf(GENERIC_SHOW_ASSET_ERROR);
-    if (byte_reading(NULL, socket_fd, status, COMMAND_WORD_SIZE, true, false))             printf(GENERIC_SHOW_ASSET_ERROR);
+    if (byte_reading(NULL, socket_fd, response_word, COMMAND_WORD_SIZE, false, false) < 0)     printf(GENERIC_SHOW_ASSET_ERROR);
+    if (byte_reading(NULL, socket_fd, status, COMMAND_WORD_SIZE, true, false) < 0)             printf(GENERIC_SHOW_ASSET_ERROR);
 
     if (!strcmp(status, "ERR") || !strcmp(status, "NOK")) 
         printf(GENERIC_SHOW_ASSET_ERROR);
     else if (!strcmp(status, "OK")) {
         char file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
-        if (byte_reading(NULL, socket_fd, file_name, FILE_NAME_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
-        if (byte_reading(NULL, socket_fd, file_size_str, FILE_SIZE_SIZE, true, false))        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (byte_reading(NULL, socket_fd, file_name, FILE_NAME_SIZE, true, false) < 0)        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
+        if (byte_reading(NULL, socket_fd, file_size_str, FILE_SIZE_SIZE, true, false) < 0)        {printf(GENERIC_SHOW_ASSET_ERROR); close(socket_fd); return;}
 
         long file_size = stol(file_size_str);
     
@@ -521,9 +521,9 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd,
         while (bytes_read < image_size) {
             memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
             n = read(*image_fd, image_buffer, IMAGE_BUFFER_SIZE);
-            if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR);  return "ERR";}
+            if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR); close(*image_fd);  return "ERR";}
             n = write(fd, image_buffer, n);
-            if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP");  return "ERR";}
+            if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP IMAGE"); close(fd);  return "ERR";}
             bytes_read += n;
         }
         char new_line_char = '\n';

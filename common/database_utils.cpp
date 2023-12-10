@@ -299,8 +299,11 @@ time_t get_auction_start_and_end_fulltime(string AID, char mode) {
 
 int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     char image_buffer[IMAGE_BUFFER_SIZE];
-    if (mkdir("./AUCTIONS/temp", S_IRWXU) == -1)
-        return -1;
+    // Check if the temp directory already exists
+    struct stat st;
+    if (stat("./AUCTIONS/temp/", &st) != 0) 
+        if (mkdir("./AUCTIONS/temp", S_IRWXU) == -1)
+            return -1;
     string image_name = "./AUCTIONS/temp/" + file_name;
     FILE* fd_image = fopen(image_name.c_str(), "w");
     long bytes_read = 0, n;
@@ -308,9 +311,9 @@ int copy_image(string AID, string file_name, long file_size, int socket_fd) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
         memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
         n = read(socket_fd, image_buffer, n);
-        if (n<0)    return -1;
+        if (n<=0)    return -1;
         n = fwrite(image_buffer, 1, n, fd_image);
-        if (n<0)    return -1;
+        if (n<=0)    return -1;
         bytes_read += n;
     }
     fclose(fd_image);
