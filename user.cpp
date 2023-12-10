@@ -300,25 +300,26 @@ void show_record(char arguments[]) {
 
 void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
-    char asset_name[20], file_name[BUFFER_SIZE];
+    char asset_name[20], file_path[BUFFER_SIZE];
     long start_value, timeactive;
     int  jpg_fd;
 
-    sscanf(arguments, "%*s %s %s %ld %ld", asset_name, file_name, &start_value, &timeactive);
+    sscanf(arguments, "%*s %s %s %ld %ld", asset_name, file_path, &start_value, &timeactive);
 
     if (strlen(asset_name) > ASSET_NAME_SIZE) {
         printf(ARGUMENTS_SIZE_ERROR, "asset_name", ASSET_NAME_SIZE); 
         return;
     }
-    if (strlen(file_name) > FILE_NAME_SIZE) {
+    if (strlen(file_path) > FILE_NAME_SIZE) {
         printf(ARGUMENTS_SIZE_ERROR, "file_name", FILE_NAME_SIZE); 
         return;
     }
 
+    string file_name = get_file_from_path(file_path);
     message += " " + string(asset_name) + " " + to_string(start_value) + " " + to_string(timeactive)
         + " " + file_name;
 
-    if ((jpg_fd = image_processing(file_name, &message)) == -1) {
+    if ((jpg_fd = image_processing(file_path, &message)) == -1) {
         printf(IMAGE_PROCESSING_ERROR); 
         return;
     }

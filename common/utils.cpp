@@ -89,3 +89,18 @@ int image_processing(char image_name[], string* message) {
     }
     return fd_jpg;
 }
+
+/* get_file_from_path: recursive function that, given a path, returns the file at the end of it
+   - path: the path to the file
+   Returns the name of the file at the end of the path
+*/
+string get_file_from_path(string path) {
+    size_t pos = path.find('/');
+
+    if (pos != string::npos)
+        // Found '/, it's still a directory
+        return get_file_from_path(path.substr(pos + 1));
+
+    // '/' not found, it's the file name
+    return path;
+}
