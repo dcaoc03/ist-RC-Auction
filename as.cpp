@@ -562,7 +562,11 @@ string show_record(char arguments[]) {
     string auction_info = get_auction_info(AID);
     if (auction_info == "") return "ERR";
 
-    return "OK " + auction_info;
+    string bids = get_bids(AID);
+
+    string end = get_auction_end_info(AID);
+
+    return "OK " + auction_info + bids + end;
 }
 
 /*  +------------ TCP Commands ------------+ */

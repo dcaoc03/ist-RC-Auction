@@ -64,6 +64,8 @@ int create_bid_files(std::string UID, std::string AID, long value, std::string v
 std::list <std::string> get_hosted_auctions_or_bids(std::string UID, char mode);
 std::string get_auction_file_name(std::string AID);
 std::string get_auction_info(std::string AID);
+std::string get_bids(std::string AID);
+std::string get_auction_end_info(std::string AID);
 
 
 #endif

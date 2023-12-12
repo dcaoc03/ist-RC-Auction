@@ -291,7 +291,7 @@ void show_record(char arguments[]) {
         if (!strcmp(response, "NOK"))
             printf(UNSUCCESSFUL_SHOW_RECORD_USER, AID);
         else if (!strcmp(response, "OK")) {
-            printf("received : %s\n", request_result.c_str());
+            printf("received : %s", request_result.c_str());
         }
     }
 }

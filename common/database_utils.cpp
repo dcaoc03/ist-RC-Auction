@@ -10,6 +10,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 
 #include "database_utils.hpp"
 #include "constants.h"
@@ -584,15 +585,59 @@ string get_auction_info(string AID) {
     string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "r");
 
-    char UID[UID_SIZE+1], asset_name[ASSET_NAME_SIZE], file_name[FILE_NAME_SIZE], start_value[START_VALUE_SIZE],
-    start_date[20], start_hours[20];
-    long start_fulltime;
-    if (fscanf(fd_start_file, "%s %s %s %s %*s %s %s %ld", UID, asset_name, file_name, start_value, start_date, start_hours, &start_fulltime) < 0)
+    char UID[UID_SIZE+1], asset_name[ASSET_NAME_SIZE+1], file_name[FILE_NAME_SIZE+1], start_value[START_VALUE_SIZE+1],
+    duration[TIMEACTIVE_SIZE+1], start_date[20], start_hours[20];
+    if (fscanf(fd_start_file, "%s %s %s %s %s %s %s", UID, asset_name, file_name, start_value, duration, start_date, start_hours) < 0)
         return "";
     
-    time_t current_time = time(NULL);
-    string s_active_time = to_string(current_time-start_fulltime);
-    string active_time = string(TIMEACTIVE_SIZE - s_active_time.length(), '0') + s_active_time;
+    return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + duration;
+}
+
+bool sort_by_bid_value(vector <string> bid1, vector <string> bid2) {
+    return stoi(bid1[1]) > stoi(bid2[1]);
+}
+
+string get_bids(string AID) {
+    string bids_dir_name = "./AUCTIONS/" + AID + "/BIDS";
+    DIR* bids_dir = opendir(bids_dir_name.c_str());
+    struct dirent* entry;
+    list <vector <string>> bids_list;
+    string bids = "";
+    while ((entry = readdir(bids_dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, "MAX_BID.txt")) {
+            string bid_file_name = "./AUCTIONS/" + AID + "/BIDS/" + string(entry->d_name);
+            FILE* fd_bid_file = fopen(bid_file_name.c_str(), "r");
+            char UID[UID_SIZE+1], value[BID_VALUE_SIZE+1], bid_date[20], bid_hours[20];
+            long bid_fulltime;
+            if (fscanf(fd_bid_file, "%s %s %s %s %ld", UID, value, bid_date, bid_hours, &bid_fulltime) < 0)
+                return "";  
+            string s_active_time = to_string(bid_fulltime);
+            string active_time = string(TIMEACTIVE_SIZE - s_active_time.length(), '0') + s_active_time;
+            bids_list.push_back({UID, value, bid_date, bid_hours, active_time});
+            fclose(fd_bid_file);
+        }
+    }
+    bids_list.sort(sort_by_bid_value);
+    closedir(bids_dir);
+    int count = 0;
+    for (auto bid : bids_list) {
+        bids += "\nB " + bid[0] + " " + bid[1] + " " + bid[2] + " " + bid[3] + " " + bid[4];
+        count++;
+        if (count == MAX_BIDS_TO_SEND)
+            break;
+    }
+    return bids;
+}
+
+string get_auction_end_info(string AID) {
+    if (is_auction_ongoing(AID) == 1)
+        return "";
+    string end_file_name = "./AUCTIONS/" + AID + "/END_"+ AID +".txt";
+    FILE* fd_end_file = fopen(end_file_name.c_str(), "r");
+
+    char end_date[20], end_hours[20], duration[TIMEACTIVE_SIZE+1];
+    if (fscanf(fd_end_file, "%s %s %s", end_date, end_hours, duration) < 0)
+        return "";
     
-    return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + active_time;
+    return "\nE " + string(end_date) + " " + string(end_hours) + " " + string(duration);
 }
