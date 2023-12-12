@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
     hints_tcp.ai_socktype=SOCK_STREAM;
     hints_tcp.ai_flags=AI_PASSIVE;
 
-    if (getaddrinfo(NULL, PORT, &hints_tcp, &res_tcp) != 0)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
+    if (getaddrinfo(NULL, as_port.c_str(), &hints_tcp, &res_tcp) != 0)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
 
     fd_tcp = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_tcp == -1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
     hints_udp.ai_socktype=SOCK_DGRAM;
     hints_udp.ai_flags=AI_PASSIVE;
 
-    if (getaddrinfo(NULL, PORT, &hints_udp, &res_udp) != 0)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
+    if (getaddrinfo(NULL, as_port.c_str(), &hints_udp, &res_udp) != 0)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
 
     fd_udp=socket(AF_INET, SOCK_DGRAM, 0);
     if (fd_udp == -1)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}

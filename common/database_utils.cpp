@@ -17,10 +17,21 @@
 #define NUM_AUCTIONS_FILE_NAME "NUM_AUCTIONS.txt"
 #define AUCTIONS_SEMAPHORE_NAME "/AUCTION_SEMAPHORE"
 #define INDIVIDUAL_AUCTION_SEMAPHORE_NAME "/AUCTION_SEMPAHORE_"
+#define INDIVIDUAL_USER_SEMAPHORE_NAME "/USER_SEMPAHORE_"
 
 using namespace std;
 
 /* TODO!!!!!!!!!!!!!!!!!: Function whcih removes users, auctions and bids (directories) in case of errors */
+
+/*  +------------------------------------------+
+    |                                          |
+    |         ERROR HANDLING FUNCTIONS         |
+    |                                          |
+    +------------------------------------------+  */
+
+void remove_directory(string dir_name) {
+    
+}
 
 /*  +--------------------------------------+
     |                                      |
@@ -37,6 +48,15 @@ void unlink_semaphores() {
             string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + string(entry->d_name);
             sem_unlink(individual_auction_semaphore_name.c_str());
         }
+    closedir(auctions_dir);
+    
+    DIR* users_dir = opendir("./USERS");
+    while ((entry = readdir(users_dir)) != NULL)
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
+            string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + string(entry->d_name);
+            sem_unlink(individual_user_semaphore_name.c_str());
+        }
+    closedir(users_dir);
 
 }
 
@@ -58,6 +78,7 @@ int is_user_logged_in(string user_ID) {
     DIR* dir = does_user_exist(user_ID);
     if (dir == NULL)
         return -1;
+    closedir(dir);
     string login_file_name = "./USERS/" + user_ID + "/" + user_ID + "_login.txt";
     return access(login_file_name.c_str(), F_OK);
 }
@@ -70,25 +91,31 @@ int is_user_registered(string user_ID) {
 // Returns 1 if accepted, 0 if not, -1 if error
 int user_password_check(char user_id[], char password[]) {
     string user_id_str = string(user_id);
-    string password_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_password.txt";   
+    string password_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_password.txt";
+
+    // Initialize the semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + string(user_id);
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
+
     FILE* fd_pass = fopen(password_file_name.c_str(), "r");
 
     char password_in_file[PASSWORD_SIZE+1];
     memset(password_in_file, 0, sizeof(password_in_file));
 
-    if (fread(password_in_file, sizeof(char), PASSWORD_SIZE+1, fd_pass) < 0) {
-        return -1;
-    }
+    if (fread(password_in_file, sizeof(char), PASSWORD_SIZE+1, fd_pass) < 0) {sem_post(sem); sem_close(sem); return -1;}
     fclose(fd_pass);
 
     if (!strcmp(password_in_file, password)) {
         string user_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_login.txt";
         FILE* fd_user = fopen(user_file_name.c_str(), "w");
         fclose(fd_user);
+        sem_post(sem); sem_close(sem);
         return 1;
     }
     else 
-        return 0;
+        {sem_post(sem); sem_close(sem); return 0;}
 }
 
 int does_auction_exist(string AID) {
@@ -134,7 +161,7 @@ int is_auction_ongoing(string AID) {
         return 1;
     }
     else {
-        if (create_auction_end_file(AID) == -1)     return -1;
+        if (create_auction_end_file(AID) == -1)     {sem_post(sem); sem_close(sem); return -1;}
         sem_post(sem); sem_close(sem);
         return 0;
     }
@@ -163,6 +190,13 @@ int create_user_dirs(string user_id) {
         
     if(mkdir(bidded.c_str(), S_IRWXU) == -1)
         return -1;
+
+    // Initialize the individual semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + user_id;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_CREAT, 0666, 1);
+    if (sem == SEM_FAILED)  return -1;
+    sem_close(sem);
+
     return 0;
 }
 
@@ -172,42 +206,55 @@ int create_user(string user_id, char password[], bool create_directories) {
             return -1;
     
     string user_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
-    string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";        
+    string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";
+    // Initialize the semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + user_id;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
 
     FILE* fd_user = fopen(user_file_name.c_str(), "w");
     FILE* fd_pass = fopen(password_file_name.c_str(), "w");
 
-    if ((fd_user == NULL) || (fd_pass == NULL))
-        return -1;
+    if ((fd_user == NULL) || (fd_pass == NULL)) {sem_post(sem); sem_close(sem); return -1;}
 
     fprintf(fd_pass, "%s", password);
 
     fclose(fd_user);
     fclose(fd_pass);
 
+    sem_post(sem); sem_close(sem);
     return 0;
 }
 
 // Returns 0 if successful, 1 if unsuccessful, -1 if error
 int logout_user(string user_id) {    
     string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
-    if (access(login_file_name.c_str(), F_OK) == -1) 
-        return 1;
+    // Initialize the semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + user_id;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
+
+    if (access(login_file_name.c_str(), F_OK) == -1) {sem_post(sem); sem_close(sem); return 1;}
     else {
-        if (remove(login_file_name.c_str()) != 0)
-            return -1;
-        else
-            return 0;
+        if (remove(login_file_name.c_str()) != 0) {sem_post(sem); sem_close(sem); return -1;}
+        else {sem_post(sem); sem_close(sem); return 0;}
     }
 }
 
 int unregister_user(string user_id) {
     string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
     string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";
+    // Initialize the semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + user_id;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
     
-    if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0) 
-        return -1;
+    if ((remove(login_file_name.c_str()) != 0) || remove(password_file_name.c_str()) != 0) {sem_post(sem); sem_close(sem); return -1;}
     
+    sem_post(sem); sem_close(sem); 
     return 0;
 }
 
@@ -221,16 +268,34 @@ int setup_auctions_dir() {int count = 0;
     if (auctions_dir == NULL)
         return -1;
 
+    // Create semaphores for every auction in the database and counts the number of auctions in the database
     while ((entry = readdir(auctions_dir)) != NULL)
         if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME)) {
             count++;
 
-            // Initialize the individual semaphores
+            // Initialize the individual auction semaphores
             string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + string(entry->d_name);
             sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_CREAT, 0666, 1);
             if (sem == SEM_FAILED)  return -1;
             sem_close(sem);
         }
+    closedir(auctions_dir);
+
+    DIR* users_dir = opendir("./USERS");
+
+    if (auctions_dir == NULL)
+        return -1;
+
+    // Create semaphores for every user in the database
+    while ((entry = readdir(users_dir)) != NULL)
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
+            // Initialize the individual user semaphores
+            string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + string(entry->d_name);
+            sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_CREAT, 0666, 1);
+            if (sem == SEM_FAILED)  return -1;
+            sem_close(sem);
+        }
+    closedir(users_dir);
 
     string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "w+");
@@ -342,7 +407,7 @@ int create_auction_dirs(string AID, string UID) {
         return -1;
     }
 
-    // Initialize the semaphore
+    // Initialize the individual semaphore
     string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + AID;
     sem_t *sem = sem_open(individual_auction_semaphore_name.c_str(), O_CREAT, 0666, 1);
     if (sem == SEM_FAILED)  return -1;
