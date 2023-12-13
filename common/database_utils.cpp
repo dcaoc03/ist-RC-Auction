@@ -513,11 +513,22 @@ int get_highest_bid(string AID, long new_bid) {
 
 // Returns 0 if succsess, -1 in case of error
 int create_bid_files(std::string UID, std::string AID, long value, string value_str) {
+    // Initialize the user semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
     // Create the file in the user's "BIDDED" directory
     string user_bidded_file_name = "./USERS/" + UID + "/BIDDED/" + AID + ".txt";
     FILE* fd_user_bidded_file = fopen(user_bidded_file_name.c_str(), "w");
     fclose(fd_user_bidded_file);
+    sem_post(sem); sem_close(sem);
 
+    // Initialize the individual auction semaphore
+    string individual_auction_semaphore_name = INDIVIDUAL_AUCTION_SEMAPHORE_NAME + AID;
+    sem = sem_open(individual_auction_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return -1;
+    sem_wait(sem);
     // Create the file 
     string auction_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/" + value_str + ".txt";
     FILE* fd_auction_bid_file = fopen(auction_bid_file_name.c_str(), "w");
@@ -527,12 +538,13 @@ int create_bid_files(std::string UID, std::string AID, long value, string value_
     time_t bid_fulltime = time(NULL);
     struct tm *bid_date_time = localtime(&bid_fulltime);
     time_t start_fulltime = get_auction_start_and_end_fulltime(AID, 's');
-    if (start_fulltime == -1)
-        return -1;
-
+    if (start_fulltime == -1)   {sem_post(sem); sem_close(sem); return -1;}
     fprintf(fd_auction_bid_file, "%04d-%02d-%02d %02d:%02d:%02d %ld", bid_date_time->tm_year+1900, bid_date_time->tm_mon + 1, bid_date_time->tm_mday,
         bid_date_time->tm_hour, bid_date_time->tm_min, bid_date_time->tm_sec, (bid_fulltime - start_fulltime));
+
     fclose(fd_auction_bid_file);
+    sem_post(sem); sem_close(sem);
+
     return 0;
 }
 
@@ -548,18 +560,28 @@ int create_bid_files(std::string UID, std::string AID, long value, string value_
 // mode == 'b' -> returns the auctions where the user has put a bid
 // mode == 'l' -> returns all auctions
 list <string> get_hosted_auctions_or_bids(string UID, char mode) {
-    string desired_dir;
-    if (mode == 'a')    desired_dir = "./USERS/" + string(UID) + "/HOSTED";
-    else if (mode == 'b')    desired_dir = "./USERS/" + string(UID) + "/BIDDED";
-    else if (mode == 'l')    desired_dir = "./AUCTIONS/";
-    DIR* dir = opendir(desired_dir.c_str());
+    string desired_dir, semaphore_name;
+    sem_t* sem;
     list <string> user_list;
     struct dirent* entry;
+
+    if (mode == 'a')    {desired_dir = "./USERS/" + string(UID) + "/HOSTED"; semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;}
+    else if (mode == 'b')    {desired_dir = "./USERS/" + string(UID) + "/BIDDED"; semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;}
+    else if (mode == 'l')    {desired_dir = "./AUCTIONS/"; semaphore_name = AUCTIONS_SEMAPHORE_NAME;}
+    
+    sem = sem_open(semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return user_list;
+    sem_wait(sem);
+
+    DIR* dir = opendir(desired_dir.c_str());
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, NUM_AUCTIONS_FILE_NAME))
             user_list.push_back(string(entry->d_name).substr(0, strlen(entry->d_name) - 4));
     }
+
     closedir(dir);
+    sem_post(sem); sem_close(sem);
+
     return user_list;
 }
 
@@ -621,7 +643,7 @@ string get_bids(string AID) {
     closedir(bids_dir);
     int count = 0;
     for (auto bid : bids_list) {
-        bids += "\nB " + bid[0] + " " + bid[1] + " " + bid[2] + " " + bid[3] + " " + bid[4];
+        bids += " B " + bid[0] + " " + bid[1] + " " + bid[2] + " " + bid[3] + " " + bid[4];
         count++;
         if (count == MAX_BIDS_TO_SEND)
             break;
@@ -639,5 +661,5 @@ string get_auction_end_info(string AID) {
     if (fscanf(fd_end_file, "%s %s %s", end_date, end_hours, duration) < 0)
         return "";
     
-    return "\nE " + string(end_date) + " " + string(end_hours) + " " + string(duration);
+    return " E " + string(end_date) + " " + string(end_hours) + " " + string(duration);
 }

@@ -300,9 +300,9 @@ int main(int argc, char** argv) {
             
             const char* response2 = response.c_str();
 
-            n=sendto(fd_udp, response2, strlen(response2)+1, 0, (struct sockaddr*) &addr_udp, addrlen_udp);
+            n=sendto(fd_udp, response2, strlen(response2), 0, (struct sockaddr*) &addr_udp, addrlen_udp);
             if (n==-1) {
-                if (verbose)    printf(SOCKET_WRITING_ERROR, "TCP");
+                if (verbose)    printf(SOCKET_WRITING_ERROR, "UDP");
                 exit(1);
             }
         } 
@@ -543,7 +543,7 @@ string list_auctions(char arguments[]) {
         }
         response += " " + AID + (ongoing ? " 1" : " 0");
     }
-    return "OK" + response + "\n";
+    return "OK" + response;
 }
 
 string show_record(char arguments[]) {

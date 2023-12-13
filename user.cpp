@@ -291,7 +291,9 @@ void show_record(char arguments[]) {
         if (!strcmp(response, "NOK"))
             printf(UNSUCCESSFUL_SHOW_RECORD_USER, AID);
         else if (!strcmp(response, "OK")) {
-            printf("received : %s", request_result.c_str());
+            char auction_info[UDP_BUFFER_SIZE];
+            sscanf(request_result.c_str(), "%*s %*s %[^\n]", auction_info);
+            printf("%s\n", auction_info);
         }
     }
 }
