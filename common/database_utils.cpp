@@ -22,7 +22,6 @@
 
 using namespace std;
 
-/* TODO!!!!!!!!!!!!!!!!!: Function whcih removes users, auctions and bids (directories) in case of errors */
 
 /*  +------------------------------------------+
     |                                          |
@@ -30,8 +29,25 @@ using namespace std;
     |                                          |
     +------------------------------------------+  */
 
+// Recursively deletes a directory and all it's contents
+// (Used in case of errors while creating User or Auction directories)
 void remove_directory(string dir_name) {
-    
+    DIR* dir = opendir(dir_name.c_str());
+    struct dirent* entry;
+
+    if (dir != NULL) {
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
+                string file_path = dir_name + "/" + entry->d_name;
+                if (entry->d_type == DT_DIR)
+                    remove_directory(file_path);
+                else
+                    remove(file_path.c_str());
+            }
+        }
+        closedir(dir);
+        rmdir(dir_name.c_str());
+    }
 }
 
 /*  +--------------------------------------+
@@ -203,8 +219,11 @@ int create_user_dirs(string user_id) {
 
 int create_user(string user_id, char password[], bool create_directories) {
     if (create_directories) 
-        if (create_user_dirs(user_id) == -1) 
+        if (create_user_dirs(user_id) == -1) {
+            string user_dir_name = "USERS/" + user_id;
+            remove_directory(user_dir_name.c_str());
             return -1;
+        }
     
     string user_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
     string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";
@@ -339,6 +358,7 @@ int get_number_of_auctions() {
         sem_post(sem); sem_close(sem);
         return -1;
     }
+    fclose(fd_start_file);
     sem_post(sem); sem_close(sem);
     return n_auctions;
 }
@@ -370,7 +390,7 @@ int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     if (stat("./AUCTIONS/temp/", &st) != 0) 
         if (mkdir("./AUCTIONS/temp", S_IRWXU) == -1)
             return -1;
-    string image_name = "./AUCTIONS/temp/" + file_name;
+    string image_name = "./AUCTIONS/temp/" + AID + "_" + file_name;
     FILE* fd_image = fopen(image_name.c_str(), "w");
     long bytes_read = 0, n;
     while (bytes_read < file_size) {
@@ -386,15 +406,7 @@ int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     return 0;
 }
 
-int create_auction_dirs(string AID, string UID) {
-    // Create .txt on User directory
-    string owner_dir_name = "./USERS/" + string(UID);
-
-    string hosted_file = owner_dir_name + "/HOSTED/" + AID + ".txt";
-    FILE* fd_hosted = fopen(hosted_file.c_str(), "w");
-    fclose(fd_hosted);
-
-    // Create directory in AUCTIONS
+int create_auction_dirs(string AID, string UID) {// Create directory in AUCTIONS
     string auctions_dir = "./AUCTIONS/" + AID;
     string bids_dir = auctions_dir + "/BIDS";
     string asset_dir = auctions_dir + "/ASSET";
@@ -418,12 +430,11 @@ int create_auction_dirs(string AID, string UID) {
 }
 
 int move_image(string file_name, string AID) {
-    string image_initial_name = "./AUCTIONS/temp/" + file_name;
+    string image_initial_name = "./AUCTIONS/temp/" + AID + "_" + file_name;
     string image_final_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
     if (rename(image_initial_name.c_str(), image_final_name.c_str()) == -1)
         return -1;
-    if (rmdir("./AUCTIONS/temp") < 0)
-        return -1;
+    rmdir("./AUCTIONS/temp");
     return 0;
 }
 
@@ -445,14 +456,34 @@ void create_auction_start_file(string AID, string UID, string asset_name, string
     FILE* fd_max_bid_file = fopen(max_bid_file_name.c_str(), "w");
     fprintf(fd_max_bid_file, "%ld", start_value);
     fclose(fd_max_bid_file);
+
+    // Initialize the user semaphore
+    string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;
+    sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
+    if (sem == SEM_FAILED)  return;
+    sem_wait(sem);
+    // Create .txt on User directory
+    string owner_dir_name = "./USERS/" + string(UID);
+
+    string hosted_file = owner_dir_name + "/HOSTED/" + AID + ".txt";
+    FILE* fd_hosted = fopen(hosted_file.c_str(), "w");
+    fclose(fd_hosted);
+    sem_post(sem); sem_close(sem);
+    
 }
 
 int create_auction(string AID, string UID, string asset_name, string file_name, long start_value, long timeactive) {
-    if (create_auction_dirs(AID,UID) == -1)
+    if (create_auction_dirs(AID,UID) == -1) {
+        string auction_dir_name = "AUCTIONS/" + AID;
+        remove_directory(auction_dir_name.c_str());
         return -1;
+    }
     create_auction_start_file(AID, UID, asset_name, file_name, start_value, timeactive);
-    if (move_image(file_name, AID) == -1)
+    if (move_image(file_name, AID) == -1) {
+        string auction_dir_name = "AUCTIONS/" + AID;
+        remove_directory(auction_dir_name.c_str());
         return -1;
+    }
     return 0;
 }
 
@@ -463,8 +494,10 @@ int create_auction_end_file(string AID) {
 
     time_t start_fulltime = get_auction_start_and_end_fulltime(AID, 's');
     time_t predicted_ending_time = get_auction_start_and_end_fulltime(AID, 'e');
-    if (predicted_ending_time == -1)
+    if (predicted_ending_time == -1) {
+        remove(auction_end_file.c_str());
         return -1;
+    }
     time_t current_fulltime = time(NULL);
     time_t end_fulltime = min(current_fulltime, predicted_ending_time);
     struct tm *end_date_time = localtime(&end_fulltime);

@@ -103,6 +103,8 @@ int main(int argc, char** argv) {
 
     /* -----TODO-----: kill all child processes smoothly */
 
+    /* ------TODO------: set socket timers */
+
     /* CREATE TCP SOCKET */
    
     memset(&hints_tcp, 0, sizeof hints_tcp );

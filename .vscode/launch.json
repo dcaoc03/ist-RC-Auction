@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/dcaoc/RC/project/ist-RC-Auction",
-      "program": "/home/dcaoc/RC/project/ist-RC-Auction/build/Debug/outDebug",
+      "cwd": "/home/dcaoc/RC/project2/ist-RC-Auction",
+      "program": "/home/dcaoc/RC/project2/ist-RC-Auction/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

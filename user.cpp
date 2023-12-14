@@ -94,6 +94,12 @@ int main(int argc, char** argv) {
                 login(command_buffer);
             else if (!strcmp(command_word, "exit"))
                 exit(&end);
+            else if (!strcmp(command_word, "list") || !strcmp(command_word, "l"))
+                list_auctions();
+            else if (!strcmp(command_word, "show_asset") || !strcmp(command_word, "sa"))
+                show_asset(command_buffer);
+            else if (!strcmp(command_word, "show_record") || !strcmp(command_word, "sr"))
+                show_record(command_buffer);
             else 
                 printf(LOGIN_FIRST);
         }
@@ -477,6 +483,8 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     socklen_t addrlen;
     struct sockaddr_in addr;
     char buffer[UDP_BUFFER_SIZE];
+
+    memset(buffer, 0, UDP_BUFFER_SIZE);
     
     if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1) {
         printf(SOCKET_WRITING_ERROR, "UDP");
