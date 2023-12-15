@@ -232,7 +232,7 @@ void myauctions() {
         else {
             char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
+            display_list(auctions_list, 'a', user_ID);
         }
     }
 
@@ -255,7 +255,7 @@ void mybids() {
         else {
             char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
+            display_list(auctions_list, 'b', user_ID);
         }
     }
 }
@@ -276,7 +276,7 @@ void list_auctions() {
         else {
             char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
-            printf("%s\n", auctions_list);
+            display_list(auctions_list, 'l', "");
         }
     }
 }
@@ -299,7 +299,7 @@ void show_record(char arguments[]) {
         else if (!strcmp(response, "OK")) {
             char auction_info[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auction_info);
-            printf("%s\n", auction_info);
+            display_auction(auction_info, AID);
         }
     }
 }
