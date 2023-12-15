@@ -41,8 +41,12 @@ int n_child_processes=0;
     |                                  |
     +----------------------------------+  */
 
+/* end_AS: signal handler for SIGINT, SIGTERM and SIGTSTP, ends the AS's execution
+*/
 static void end_AS(int sig) {
     end_as = 1;
+
+    // Disables the child_finished signal handler
     struct sigaction act;
     memset(&act, 0, sizeof act);
     act.sa_handler = SIG_IGN;
@@ -51,24 +55,37 @@ static void end_AS(int sig) {
         exit(1);
     }
 
+    // Waits for all child processes to finish
     while (n_child_processes > 0) {
         printf("Waiting for %d processes to finish\n", n_child_processes);
         wait(NULL);
         n_child_processes--;
     }
 
+    // Closes the UDP and TCP sockets
     close(fd_tcp_global);
     close(fd_udp_global);
+
+    // Deletes all created semaphores
     unlink_semaphores();
 
     printf(AS_CLOSING_MESSAGE);
     exit(0);
 }
 
+/* child_finished: signal handler used for SIGCHLD, decreases the global variable n_child_processes by one
+   when a child process finishes
+*/
 static void child_finished(int sig) {
     n_child_processes--;
 }
 
+/* process_arguments: processes the command line arguments
+   - argc: the number of command line arguments
+   - argv: array of strings holding the arguments
+   If they are specified, the one marked with '-p' will be used as the default port of the server and, if the
+   flag '-v' is used, the server will run in verbose mode
+*/
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
     for (int i=1; i < argc; i++) {
         if (!strcmp(argv[i], "-p")) 
@@ -78,6 +95,7 @@ void process_arguments(int argc, char** argv) {         // processes the argumen
     }
 }
 
+/* MAIN FUNCTION */
 int main(int argc, char** argv) {
     as_port = PORT;
 
@@ -173,6 +191,7 @@ int main(int argc, char** argv) {
 
         select_value= select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
 
+        // One of the sockets is ready for reading
         if (select_value != -1) {
             if (FD_ISSET(fd_tcp, &fdset)) {
                 // TCP socket is ready to be read
@@ -191,6 +210,7 @@ int main(int argc, char** argv) {
                     printf(SOCKET_CREATION_ERROR, "TCP");
                     exit(1);
                 };
+
                 if (verbose) {
                     int errcode;
                     char sender[NI_MAXHOST], port[NI_MAXSERV];
@@ -201,8 +221,10 @@ int main(int argc, char** argv) {
                         printf(REQUEST_RECEIVED, "TCP", sender, port);
 
                 }
+
                 child_pid = fork();
                 if (child_pid == -1) {
+                    // fork() error
                     fprintf(stderr, CHILD_PROCESS_ERROR, strerror(errno));
                     const char* response2 = "ERR\n";
                     if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
@@ -211,6 +233,9 @@ int main(int argc, char** argv) {
                     }
                 }
                 else if (child_pid == 0) { 
+
+                    /* ------ CHILD PROCESS PROGRAM ------ */
+
                     close(fd_tcp); 
                     close(fd_udp);
 
@@ -268,13 +293,14 @@ int main(int argc, char** argv) {
                         response = "ERR\n";
                     }
                 
-                    
+                    /* TCP SOCKET WRITING */
                     const char* response2 = response.c_str();
                     if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
                         printf(SOCKET_WRITING_ERROR, "TCP");
                         exit(1);
                     }
-                    if (asset_fd >= 0) {                    // If asset_fd != -1, show_asset() was successful, so we send the asset
+                    // If asset_fd != -1, show_asset() was successful,  an asset needs to be sent
+                    if (asset_fd >= 0) {
                         long image_size, bytes_read=0;
                         char image_buffer[IMAGE_BUFFER_SIZE];
                         sscanf(response2, "%*s %*s %*s %ld", &image_size);
@@ -293,6 +319,8 @@ int main(int argc, char** argv) {
                     close(newfd); 
                     exit(0); 
                 }
+
+                // The parent process increases the number of active child processes
                 n_child_processes++;
                 close(newfd);
             }
@@ -302,6 +330,10 @@ int main(int argc, char** argv) {
                 addrlen_udp = sizeof(addr_udp);
                 bzero(buffer, sizeof(buffer)); 
                 n=recvfrom(fd_udp, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
+                if (n==-1) {
+                    if (verbose)    printf(SOCKET_READING_ERROR, "UDP");
+                    exit(1);
+                }
                 
                 if (verbose) {
                     int errcode;
@@ -313,6 +345,7 @@ int main(int argc, char** argv) {
                         printf(REQUEST_RECEIVED, "UDP", sender, port);
 
                 }
+
                 /* REQUEST PROCESSING */
                 string response;
                 if (byte_reading(buffer, -1, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
@@ -358,6 +391,7 @@ int main(int argc, char** argv) {
                     response = "ERR\n";
                 }
                 
+                // UDP SOCKET WRITING
                 const char* response2 = response.c_str();
 
                 n=sendto(fd_udp, response2, strlen(response2), 0, (struct sockaddr*) &addr_udp, addrlen_udp);
@@ -380,6 +414,8 @@ int main(int argc, char** argv) {
     return 0;
 }
 
+
+
 /*  +--------------------------------------+
     |                                      |
     |          REQUEST PROCESSING          |
@@ -388,6 +424,10 @@ int main(int argc, char** argv) {
 
 /*  +------------ UDP Commands ------------+ */
 
+/* login:
+   Reads: LIN UID password
+   Writes: RLI status
+*/
 string login(char arguments[]) {
     // ARGUMENT READING
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
@@ -399,7 +439,6 @@ string login(char arguments[]) {
     bytes_read += n;
 
     // ARGUMENT PROCESSING 
-
     if ((strlen(UID) != 6) || (strlen(password) != 8)) {
         if (verbose)        printf(UNSUCCESSFUL_LOGIN, UID, ARGUMENTS_WRONG_SIZE_ERROR);
         return "ERR";
@@ -416,7 +455,6 @@ string login(char arguments[]) {
     }
 
     /* COMMAND EXECUTION */
-
     DIR* dir = does_user_exist(UID);
     // User exists (dir != NULL) -> login
     if (dir) {
@@ -462,6 +500,10 @@ string login(char arguments[]) {
     }
 }
 
+/* logout:
+   Reads: LOU UID password
+   Writes: RLO status
+*/
 string logout(char arguments[]) {
     // ARGUMENT READING
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
@@ -474,7 +516,6 @@ string logout(char arguments[]) {
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
-
     DIR* dir = does_user_exist(UID);
     if (dir) {
         closedir(dir);
@@ -499,6 +540,10 @@ string logout(char arguments[]) {
     return "NOK";
 }
 
+/* unregister:
+   Reads: UNR UID password
+   Writes: RUR status
+*/
 string unregister(char arguments[]) {
     // ARGUMENT READING
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1];
@@ -511,7 +556,6 @@ string unregister(char arguments[]) {
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
-
     DIR* dir = does_user_exist(UID);
     if (dir) {
         closedir(dir);
@@ -536,6 +580,10 @@ string unregister(char arguments[]) {
     }
 }
 
+/* myauctions / ma:                             mybids / mb:
+   Reads: LMA UID                               Reads: LMB UID
+   Writes: RMA status[ AID state]*              Writes: RMB status[ AID state]*
+*/
 string myauctions_or_mybids(char arguments[], char mode) {
     // MODE CHECK
     if ((mode != 'a') && (mode != 'b')) {
@@ -552,7 +600,6 @@ string myauctions_or_mybids(char arguments[], char mode) {
     string str_UID(UID);
 
     /* COMMAND EXECUTION */
-
     DIR* dir = does_user_exist(UID);
     if (dir) {
         closedir(dir);
@@ -590,8 +637,12 @@ string myauctions_or_mybids(char arguments[], char mode) {
 
 }
 
-
+/* list:
+   Reads: LST
+   Writes: RLS status[ AID state]*
+*/
 string list_auctions(char arguments[]) {
+    /* COMMAND EXECUTION */
     list <string> auctions_list = get_hosted_auctions_or_bids("", 'l');
     if (auctions_list.empty()) {
         if (verbose)    printf(NO_AUCTIONS);
@@ -610,6 +661,12 @@ string list_auctions(char arguments[]) {
     return "OK" + response;
 }
 
+/* show_record / sr:
+   Reads: SRC UID 
+   Writes: RRC status[ host_UID auction_name asset_fname start_value
+   start_date-time timeactive][ B bidder_UID bid_value bid_date-time bid_sec_time]*
+   [ E end_date-time end_sec_time]
+*/
 string show_record(char arguments[]) {
     // ARGUMENT READING
     char AID[MAX_DIGITS+1];
@@ -623,6 +680,7 @@ string show_record(char arguments[]) {
         return "NOK";
     }
 
+    /* COMMAND EXECUTION */
     string auction_info = get_auction_info(AID);
     if (auction_info == "") return "ERR";
 
@@ -633,8 +691,13 @@ string show_record(char arguments[]) {
     return "OK " + auction_info + bids + end;
 }
 
+
 /*  +------------ TCP Commands ------------+ */
 
+/* open:
+   Reads: OPA UID password name start_value timeactive Fname Fsize Fdata
+   Writes: ROA status[ AID]
+*/
 string open_auction(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], asset_name[ASSET_NAME_SIZE+1], start_value_str[START_VALUE_SIZE+1], 
         timeactive_str[TIMEACTIVE_SIZE+1], file_name[FILE_NAME_SIZE+1], file_size_str[FILE_SIZE_SIZE+1];
@@ -673,7 +736,6 @@ string open_auction(int fd) {
     }
 
     /* COMMAND EXECUTION */
-
     string s_AID = to_string(n_AID);
     string AID = string(MAX_DIGITS - s_AID.length(), '0') + s_AID;
 
@@ -682,7 +744,6 @@ string open_auction(int fd) {
         if (verbose)    printf(UNSUCCESSFUL_AUCTION_OPENING, asset_name, ASSET_CREATION_ERROR);
         return "ERR";
     }
-    // free(image);
 
     // Reading the '\n' character at the end
     char read_char;
@@ -706,13 +767,19 @@ string open_auction(int fd) {
     return "OK " + AID;
 }
 
+/* close:
+   Reads: CLS UID password AID
+   Writes: RCL status
+*/
 string close_auction(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1]; 
+
+    // Reading the parameters
     if (byte_reading(NULL, fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(NULL, fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
 
-    // Check arguments
+    /* ARGUMENT PROCESSING */
     if (is_user_logged_in(UID) < 0) {
         if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, USER_NOT_LOGGED_IN_ERROR);
         return "NLG";
@@ -738,6 +805,7 @@ string close_auction(int fd) {
         return "END";
     }
 
+    /* COMMAND EXECUTION */
     if (create_auction_end_file(AID) == -1) {
         if (verbose)    printf(UNSUCCESSFUL_AUCTION_CLOSING, AID, GENERIC_CLOSE_AUCTION_ERROR);
         return "ERR";
@@ -747,31 +815,45 @@ string close_auction(int fd) {
     return "OK"; 
 }
 
+/* show_asset / sa:
+   Reads: SAS AID
+   Writes: RSA status[ Fname Fsize Fdata]
+*/
 string show_asset(int fd, int *image_fd) {
     char AID[MAX_DIGITS+1];
 
+    // Reading the parameters
     if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, true) == -1)   return "ERR";
 
+    /* ARGUMENT PROCESSING */
     string file_name = get_auction_file_name(AID);
     if (file_name == "") {
         if (verbose)    printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
         return "NOK";
     }
 
+    /* COMMAND EXECUTION */
     string response = "OK " + file_name;
     string file_path = "./AUCTIONS/" + string(AID) + "/ASSET/" + file_name;
+    // Writes the file's size to the message and gets the file's file descriptor
     *image_fd = image_processing((char*) file_path.c_str(), &response);
     if (*image_fd == -1) {
         if (verbose)    printf(UNSUCCESSFUL_SHOW_ASSET, AID, ASSET_NOT_FOUND_ERROR);
         return "NOK";
     }
 
+    // Leaves the complexity of writing the file to the main loop
     return response;
 }
 
+/* bid:
+   Reads: BID UID password AID value
+   Writes: ROA status[ AID]
+*/
 string bid(int fd) {
     char UID[UID_SIZE+1], password[PASSWORD_SIZE+1], AID[MAX_DIGITS+1], value_char[START_VALUE_SIZE+1];
 
+    // Reading the parameters
     if (byte_reading(NULL, fd, UID, UID_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(NULL, fd, password, PASSWORD_SIZE, false, false) == -1)   return "ERR";
     if (byte_reading(NULL, fd, AID, MAX_DIGITS, false, false) == -1)   return "ERR";
@@ -779,6 +861,7 @@ string bid(int fd) {
 
     long value = stol(value_char);
 
+    /* ARGUMENT PROCESSING */
     if (!does_auction_exist(AID) || !is_auction_ongoing(AID)) {
         if (verbose)    printf(UNSUCCESSFUL_BID, value, AUCTION_NOT_ACTIVE_ERROR);
         return "NOK";
@@ -801,6 +884,7 @@ string bid(int fd) {
         return "REF";
     }
     
+    /* COMMAND EXECUTION */
     string value_str = string(START_VALUE_SIZE - to_string(value).length(), '0') + to_string(value);
     if (create_bid_files(UID, AID, value, value_str) < 0) {
         if (verbose)    printf(UNSUCCESSFUL_BID, value, GENERIC_BID_ERROR);

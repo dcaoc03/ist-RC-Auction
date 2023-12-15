@@ -210,6 +210,7 @@ void login(char arguments[]) {
         else if (!strcmp(response, "ERR"))    printf(GENERIC_LOGIN_ERROR_USER);
     }
 }
+
 /* logout:
    Writes: LOU UID password
    Expects: RLO status
