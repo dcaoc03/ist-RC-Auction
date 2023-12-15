@@ -653,23 +653,7 @@ string open_auction(int fd) {
     long timeactive = atol(timeactive_str);
     long file_size = atol(file_size_str);
 
-    int n; 
-    // Reading the image
-    /*char image_buffer[IMAGE_BUFFER_SIZE];
-    char* image = (char*) malloc(sizeof(char)*file_size);
-    long bytes_read=0; 
-    memset(image, 0, file_size);
-    while (bytes_read < file_size) {
-        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-        n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
-        n = read(fd, image_buffer, n);
-        if (n < 0) {
-            if (verbose)    printf(SOCKET_READING_ERROR, "TCP");
-            return "ERR";
-        }
-        memcpy(image+bytes_read, image_buffer, n);
-        bytes_read += n;
-    }*/
+    int n;
 
     /* ARGUMENT PROCESSING */
     if ((start_value < 0) || (timeactive < 0)) {

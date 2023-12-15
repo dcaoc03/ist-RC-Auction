@@ -172,6 +172,10 @@ void login(char arguments[]) {
     if (request_result == "ERR")
         return;
     else {            // If login is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RLI") == -1)
+            return;
+
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_LOGIN_USER); user_ID = UID; user_password = password;}
@@ -189,6 +193,10 @@ void logout() {
     if (request_result == "ERR")
         return;
     else {             // If logout is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RLO") == -1)
+            return;
+
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_LOGOUT_USER); user_ID = ""; user_password = "";}
@@ -206,6 +214,10 @@ void unregister() {
     if (request_result == "ERR")
         return;
     else {             // If unregistration is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RUR") == -1)
+            return;
+
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK"))          {printf(SUCCESSFUL_UNREGISTRATION_USER); user_ID = ""; user_password = "";}
@@ -224,6 +236,10 @@ void myauctions() {
     if (request_result == "ERR")
         return;
     else {             // If myauctions is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RMA") == -1)
+            return;
+        
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR_USER);
@@ -247,6 +263,10 @@ void mybids() {
     if (request_result == "ERR")
         return;
     else {             // If mybids is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RMB") == -1)
+            return;
+        
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK"))         printf(NO_ONGOING_BIDS_ERROR_USER);
@@ -269,12 +289,17 @@ void list_auctions() {
     if (request_result == "ERR")
         return;
     else {             // If list is successful
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RLS") == -1)
+            return;
+        
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR);
         else if (!strcmp(response, "ERR"))    printf(GENERIC_LIST_AUCTIONS_ERROR);
         else {
             char auctions_list[UDP_BUFFER_SIZE];
+            memset(auctions_list, 0, UDP_BUFFER_SIZE);
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);
             display_list(auctions_list, 'l', "");
         }
@@ -292,12 +317,17 @@ void show_record(char arguments[]) {
     if (request_result == "ERR")
         return;
     else {
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RRC") == -1)
+            return;
+        
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK"))
             printf(UNSUCCESSFUL_SHOW_RECORD_USER, AID);
         else if (!strcmp(response, "OK")) {
             char auction_info[UDP_BUFFER_SIZE];
+            memset(auction_info, 0, UDP_BUFFER_SIZE);
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auction_info);
             display_auction(auction_info, AID);
         }
@@ -337,6 +367,10 @@ void open_auction(char arguments[]) {
     if (request_result == "ERR")
         return;
     else {
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "ROA") == -1)
+            return;
+        
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK")) {
@@ -364,6 +398,10 @@ void close_auction(char arguments[]) {
     if (request_result == "ERR")
         return;
     else {
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RCL") == -1)
+            return;
+        
         char response[COMMAND_WORD_SIZE+1];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "OK"))         printf(SUCCESSFUL_AUCTION_CLOSING_USER, AID);
@@ -442,6 +480,10 @@ void bid(char arguments[]) {
     if (request_result == "ERR")
         return;
     else {
+        // Check if the response code is correct
+        if (check_formatation((char*) request_result.c_str(), "RBD") == -1)
+            return;
+        
         char response[COMMAND_WORD_SIZE+1];
         sscanf(request_result.c_str(), "%*s %s", response);
         if (!strcmp(response, "NOK")) printf(AUCTION_ALREADY_CLOSED_ERROR_USER, AID);

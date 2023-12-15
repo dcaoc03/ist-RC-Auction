@@ -176,3 +176,16 @@ void display_auction(char buffer[], string AID) {
     }
     printf("\n");
 }
+
+int check_formatation(char buffer[], const char* expected_code) {
+    char code[COMMAND_WORD_SIZE+1];
+    if (byte_reading(buffer, -1, code, COMMAND_WORD_SIZE, false, false) < 0) {
+        printf("ERROR: got a response with unexpected formatation\n");
+        return -1;
+    }
+    else if (strcmp(code, expected_code)) {
+        printf("ERROR: expected %s message, but got %s instead\n", code, expected_code);
+        return -1;
+    }
+    return 0;
+}

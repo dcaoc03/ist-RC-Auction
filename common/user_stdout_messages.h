@@ -21,6 +21,9 @@
 #define USER_NOT_REGISTERED_ERROR_USER "User not registered in the database\n"
 #define GENERIC_LOGOUT_ERROR_USER "ERROR: something wrong happened while logging out\n"
 
+#define UNEXPECTED_FORMATATION_ERROR "ERROR: got a response with unexpected formatation\n"
+#define WRONG_FORMATATION_ERROR "ERROR: expected %s message, but got %s instead\n"
+
 // Unregister Function
 #define SUCCESSFUL_UNREGISTRATION_USER "User successfully unregistered\n"
 #define UNSUCCESSFUL_UNREGISTRATION_USER "User failed to unregister\n"
