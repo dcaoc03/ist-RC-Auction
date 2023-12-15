@@ -521,6 +521,18 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd,
     if (n != 0)     {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
     n = connect(fd, res->ai_addr, res->ai_addrlen);
     if (n == -1)    {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
+    
+    // Setting socket timer
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    if ((setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0) ||
+        (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)) {
+        printf(SOCKET_CREATION_ERROR, "TCP");
+        exit(1);
+    };
+
     n = write(fd, message, strlen(message));
     if (n == -1)    {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
 
