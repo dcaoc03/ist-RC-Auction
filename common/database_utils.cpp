@@ -648,8 +648,8 @@ string get_auction_info(string AID) {
     return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + duration;
 }
 
-bool sort_by_bid_value(vector <string> bid1, vector <string> bid2) {
-    return stoi(bid1[1]) > stoi(bid2[1]);
+bool sort_by_most_recent_bid(vector <string> bid1, vector <string> bid2) {
+    return stoi(bid1[4]) > stoi(bid2[4]);
 }
 
 string get_bids(string AID) {
@@ -667,12 +667,12 @@ string get_bids(string AID) {
             if (fscanf(fd_bid_file, "%s %s %s %s %ld", UID, value, bid_date, bid_hours, &bid_fulltime) < 0)
                 return "";  
             string s_active_time = to_string(bid_fulltime);
-            string active_time = string(TIMEACTIVE_SIZE - s_active_time.length(), '0') + s_active_time;
+            string active_time = s_active_time;
             bids_list.push_back({UID, value, bid_date, bid_hours, active_time});
             fclose(fd_bid_file);
         }
     }
-    bids_list.sort(sort_by_bid_value);
+    bids_list.sort(sort_by_most_recent_bid);
     closedir(bids_dir);
     int count = 0;
     for (auto bid : bids_list) {
