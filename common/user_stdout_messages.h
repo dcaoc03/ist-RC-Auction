@@ -53,6 +53,10 @@
 #define NO_ONGOING_BIDS_ERROR_USER "User has no ongoing bids\n"
 #define GENERIC_MY_BIDS_ERROR_USER "ERROR: something wrong happened while listing the bids\n"
 
+// List Auctions Function
+#define NO_ONGOING_AUCTIONS_ERROR "There are no ongoing auctions\n"
+#define GENERIC_LIST_AUCTIONS_ERROR "ERROR: something wrong happened while listing the auctions\n"
+
 // Bid Function
 #define SUCCESSFUL_BID_USER "Successfully made a bid of value %ld in auction %s\n"
 #define LARGER_BID_ERROR_USER "A larger bid has already been made\n"

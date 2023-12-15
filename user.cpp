@@ -271,8 +271,8 @@ void list_auctions() {
     else {             // If list is successful
         char response[BUFFER_SIZE];
         sscanf(request_result.c_str(), "%*s %s", response);
-        if (!strcmp(response, "NOK"))         printf("No auctions are currently open\n");
-        else if (!strcmp(response, "ERR"))    printf("ERROR: something went wrong while listing the auctions\n");
+        if (!strcmp(response, "NOK"))         printf(NO_ONGOING_AUCTIONS_ERROR);
+        else if (!strcmp(response, "ERR"))    printf(GENERIC_LIST_AUCTIONS_ERROR);
         else {
             char auctions_list[UDP_BUFFER_SIZE];
             sscanf(request_result.c_str(), "%*s %*s %[^\n]", auctions_list);

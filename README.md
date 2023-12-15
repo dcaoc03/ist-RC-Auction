@@ -3,8 +3,6 @@ Project from the Computer Networks course at Instituto Superior Técnico
 TODO:
 - Auction Server (AS)
   - Responses
-- User Application
-  - show_record/sr
 
 DONE:
 - Auction Server (AS)
@@ -22,5 +20,6 @@ DONE:
   - bid/b
   - list/l
   - show_asset/sa
+  - show_record/sr
 
 Should we add a wait() when issuing a TCP request? That's a question for later :P
