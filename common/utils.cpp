@@ -65,6 +65,11 @@ int byte_reading(char buffer[], int fd, char word[], int word_len, bool can_be_s
     return i+1;
 }
 
+/* image_processing: retrives the size and a file descriptor of a given file
+   - image_name: the name of the file we want to use
+   - message: a pointer to the string in which we want to write the file size
+   Returns a file descriptor of the given file
+*/
 int image_processing(char image_name[], string* message) {
     // Get image size
     FILE* jpg_pointer = fopen(image_name, "rb");
@@ -105,7 +110,7 @@ string get_file_from_path(string path) {
     return path;
 }
 
-/* display_list: receives a C string and, knowing the structure of the (AID, status) structure, 
+/* display_list: receives a C string and, knowing the structure of the (AID, status) of the auctions, 
    displays all of them in a readable way */
 void display_list(char buffer[], char mode, string UID) {
     int offset = 0;
@@ -127,6 +132,8 @@ void display_list(char buffer[], char mode, string UID) {
     printf("\n");
 }
 
+/* display_auction: receives a C string and, knowing the structure of the show_record protocol, 
+   displays all the information received in a readable way */
 void display_auction(char buffer[], string AID) {
     char UID[UID_SIZE+1], auction_name[ASSET_NAME_SIZE+1], file_name[FILE_NAME_SIZE+1], start_value[START_VALUE_SIZE+1],
        start_date[20], start_time[20], timeactive[TIMEACTIVE_SIZE+1];
@@ -150,8 +157,10 @@ void display_auction(char buffer[], string AID) {
        strlen(start_date) +  strlen(start_time) + strlen(timeactive) + 7;
 
     char next_info;
-    if (sscanf(new_buffer, "%c", &next_info) < 0)
+    if (sscanf(new_buffer, "%c", &next_info) < 0) {
+        printf("\n");
         return;
+    }
 
     if (next_info == 'B') {
         printf("\n");
@@ -177,6 +186,11 @@ void display_auction(char buffer[], string AID) {
     printf("\n");
 }
 
+/* check_formatation: given a message received from a socket, confirms if the code is the expected one
+   - buffer: a buffer holding the received message
+   - expected_code: the code we expect to be at the beggining of the buffer
+   Returns 0 if they mmatch, -1 if not
+*/
 int check_formatation(char buffer[], const char* expected_code) {
     char code[COMMAND_WORD_SIZE+1];
     if (byte_reading(buffer, -1, code, COMMAND_WORD_SIZE, false, false) < 0) {

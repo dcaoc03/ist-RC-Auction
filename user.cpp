@@ -37,7 +37,10 @@ string user_password="";
     |                                  |
     +----------------------------------+  */
 
-string get_as_ip_address() {            // gets the machine's IP address and uses it as the default IP address for the AS (unnecesarilly complicated)
+/* get_as_ip_address: gets the machine's IP address and uses it as the default IP address for the AS (unnecesarilly complicated)
+   Returns a string containing the IP address of the machine it is running in
+*/
+string get_as_ip_address() {
     string ip_address;
     char host_name[128];
     if(gethostname(host_name, 128)==-1)
@@ -65,6 +68,12 @@ string get_as_ip_address() {            // gets the machine's IP address and use
     return ip_address;
 }
 
+/* process_arguments: processes the command line arguments
+   - argc: the number of command line arguments
+   - argv: array of strings holding the arguments
+   If they are specified, the one marked with '-n' will be used as the default IP address of the server and the one
+   marked with '-p' will be used as the default port of the server
+*/
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
     for (int i=1; i < argc; i++) {
         if (!strcmp(argv[i], "-n")) 
@@ -74,21 +83,25 @@ void process_arguments(int argc, char** argv) {         // processes the argumen
     }
 }
 
+/* MAIN FUNCTION */
 int main(int argc, char** argv) {
 
     as_ip_address = get_as_ip_address();
     as_port = PORT;
-    int end = 0;                       // Indicates of the user is ending                    
+    int end = 0;                                // Indicates if the user is ending                    
 
-    if (argc > 1)
+    if (argc > 1)                               // In case command line arguments are specified
         process_arguments(argc, argv);
 
+    // Main loop: breaks out of it once "exit" is executed
     while (!end) {
+        // Read from stdin
         char command_buffer[BUFFER_SIZE], command_word[20];
         if ((fgets(command_buffer, BUFFER_SIZE, stdin) == NULL))
             return -1;
         sscanf(command_buffer, "%s", command_word);
 
+        // Commands avaliable for processes with no associated users
         if (user_ID == "") {
             if (!strcmp(command_word, "login"))
                 login(command_buffer);
@@ -103,6 +116,7 @@ int main(int argc, char** argv) {
             else 
                 printf(LOGIN_FIRST);
         }
+        // Commands avaliable for processes with logged in users
         else {
             if (!strcmp(command_word, "login"))
                 printf(ALREADY_LOGGED_IN);
@@ -160,6 +174,18 @@ void exit(int* ending) {
 
 /*  +------------ UDP Commands ------------+ */
 
+/* Most of this commands just differ in the messages they write and the responses they give, the structure they follow
+   is mostly similar:
+   1 - Argument processing
+   2 - Elaborating the message
+   3 - Writing the message to the UDP socket
+   4 - Receiving the response and reacting accordingly
+*/
+
+/* login:
+   Writes: LIN UID password
+   Expects: RLI status
+*/
 void login(char arguments[]) {
     char UID[10], password[10];
 
@@ -171,7 +197,7 @@ void login(char arguments[]) {
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         return;
-    else {            // If login is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RLI") == -1)
             return;
@@ -184,7 +210,10 @@ void login(char arguments[]) {
         else if (!strcmp(response, "ERR"))    printf(GENERIC_LOGIN_ERROR_USER);
     }
 }
-
+/* logout:
+   Writes: LOU UID password
+   Expects: RLO status
+*/
 void logout() {
     char message[BUFFER_SIZE];
     sprintf(message, "LOU %s %s\n", user_ID.c_str(), user_password.c_str());
@@ -192,7 +221,7 @@ void logout() {
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         return;
-    else {             // If logout is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RLO") == -1)
             return;
@@ -206,6 +235,10 @@ void logout() {
     }
 }
 
+/* unregister:
+   Writes: UNR UID password
+   Expects: RUR status
+*/
 void unregister() {
     char message[BUFFER_SIZE];
     sprintf(message, "UNR %s %s\n", user_ID.c_str(), user_password.c_str());
@@ -213,7 +246,7 @@ void unregister() {
     string request_result = UDPclient(message, sizeof(message));
     if (request_result == "ERR")
         return;
-    else {             // If unregistration is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RUR") == -1)
             return;
@@ -227,6 +260,10 @@ void unregister() {
     }
 }
 
+/* myauctions / ma:
+   Writes: LMA UID 
+   Expects: RMA status[ AID state]*
+*/
 void myauctions() {
     string message = "LMA " + user_ID + "\n";
     char message2[BUFFER_SIZE];
@@ -235,7 +272,7 @@ void myauctions() {
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
         return;
-    else {             // If myauctions is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RMA") == -1)
             return;
@@ -254,6 +291,10 @@ void myauctions() {
 
 }
 
+/* mybids / mb:
+   Writes: LMB UID 
+   Expects: RMB status[ AID state]*
+*/
 void mybids() {
     string message = "LMB " + user_ID + "\n";
     char message2[BUFFER_SIZE];
@@ -262,7 +303,7 @@ void mybids() {
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
         return;
-    else {             // If mybids is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RMB") == -1)
             return;
@@ -280,6 +321,10 @@ void mybids() {
     }
 }
 
+/* myauctions:
+   Writes: LST
+   Expects: RLS status[ AID state]*
+*/
 void list_auctions() {
     string message = "LST\n";
     char message2[BUFFER_SIZE];
@@ -288,7 +333,7 @@ void list_auctions() {
     string request_result = UDPclient(message2, sizeof(message2));
     if (request_result == "ERR")
         return;
-    else {             // If list is successful
+    else {
         // Check if the response code is correct
         if (check_formatation((char*) request_result.c_str(), "RLS") == -1)
             return;
@@ -306,6 +351,12 @@ void list_auctions() {
     }
 }
 
+/* show_record / sr:
+   Writes: SRC UID 
+   Expects: RRC status[ host_UID auction_name asset_fname start_value
+   start_date-time timeactive][ B bidder_UID bid_value bid_date-time bid_sec_time]*
+   [ E end_date-time end_sec_time]
+*/
 void show_record(char arguments[]) {
     char AID[MAX_DIGITS+1];
     sscanf(arguments, "%*s %s", AID);
@@ -334,8 +385,17 @@ void show_record(char arguments[]) {
     }
 }
 
+
 /*  +------------ TCP Commands ------------+ */
 
+/* Most of this commands follow the same structure as the previous UDP commands, open_auction and show_asset
+   being the most different and the ones to have more detailed execution descriptions 
+*/
+
+/* open:
+   Writes: OPA UID password name start_value timeactive Fname Fsize Fdata
+   Expects: ROA status[ AID]
+*/
 void open_auction(char arguments[]) {
     string message = "OPA " + user_ID + " " + user_password;
     char asset_name[20], file_path[BUFFER_SIZE];
@@ -344,6 +404,7 @@ void open_auction(char arguments[]) {
 
     sscanf(arguments, "%*s %s %s %ld %ld", asset_name, file_path, &start_value, &timeactive);
 
+    // Checks if arguments have forbidden values
     if (strlen(asset_name) > ASSET_NAME_SIZE) {
         printf(ARGUMENTS_SIZE_ERROR, "asset_name", ASSET_NAME_SIZE); 
         return;
@@ -353,10 +414,12 @@ void open_auction(char arguments[]) {
         return;
     }
 
+    // Get the name of the file
     string file_name = get_file_from_path(file_path);
     message += " " + string(asset_name) + " " + to_string(start_value) + " " + to_string(timeactive)
         + " " + file_name;
 
+    // Get the image's size and its file descriptor
     if ((jpg_fd = image_processing(file_path, &message)) == -1) {
         printf(IMAGE_PROCESSING_ERROR); 
         return;
@@ -386,6 +449,10 @@ void open_auction(char arguments[]) {
     close(jpg_fd);
 }
 
+/* close:
+   Writes: CLS UID password AID
+   Expects: RCL status
+*/
 void close_auction(char arguments[]) {
     char AID[MAX_DIGITS+1];
     sscanf(arguments, "%*s %s", AID);
@@ -414,6 +481,10 @@ void close_auction(char arguments[]) {
      
 }
 
+/* show_asset / sa:
+   Writes: SAS AID
+   Expects: RSA status[ Fname Fsize Fdata]
+*/
 void show_asset(char arguments[]) {
     char AID[MAX_DIGITS+1];
     sscanf(arguments, "%*s %s", AID);
@@ -424,7 +495,7 @@ void show_asset(char arguments[]) {
     int socket_fd;
     string request_result = TCPclient(message, sizeof(message), NULL, &socket_fd);
 
-    // Complexity of reading the socket is made here
+    // Complexity of reading the file from the socket is made here
     char response_word[COMMAND_WORD_SIZE+1], status[COMMAND_WORD_SIZE+1];
     if (byte_reading(NULL, socket_fd, response_word, COMMAND_WORD_SIZE, false, false) < 0)     printf(GENERIC_SHOW_ASSET_ERROR);
     if (byte_reading(NULL, socket_fd, status, COMMAND_WORD_SIZE, true, false) < 0)             printf(GENERIC_SHOW_ASSET_ERROR);
@@ -468,6 +539,10 @@ void show_asset(char arguments[]) {
     close(socket_fd);
 }
 
+/* bid:
+   Writes: BID UID password AID value
+   Expects: ROA status[ AID]
+*/
 void bid(char arguments[]) {
     char AID[MAX_DIGITS+1];
     long value;
@@ -503,10 +578,16 @@ void bid(char arguments[]) {
     |                                  |
     +----------------------------------+  */
 
-string UDPclient(char message[], unsigned int message_size) {      // Returns -1 if error, 0 if successful but denied, 1 if successful
+/* UDPclient: abstracts the process of writing to a UDP socket
+   - message: the message to write
+   - message_size: the size of the message
+   Returns the response read from the UDP socket following the request or "ERR" in case an error happened
+*/
+string UDPclient(char message[], unsigned int message_size) {
     int fd_UDP;
     struct addrinfo hints_UDP, *res_UDP;
     
+    // Creating the socket
     if ((fd_UDP = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         printf(SOCKET_CREATION_ERROR, "UDP");
         return "ERR";
@@ -528,11 +609,13 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
 
     memset(buffer, 0, UDP_BUFFER_SIZE);
     
+    // Writing to the socket
     if ((n = sendto(fd_UDP, message, strlen(message), 0, res_UDP->ai_addr, res_UDP->ai_addrlen)) == -1) {
         printf(SOCKET_WRITING_ERROR, "UDP");
         return "ERR";
     }
     
+    // Await the answer
     addrlen = sizeof(addr);
     if ((n = recvfrom(fd_UDP, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*) &addr, &addrlen)) == -1) {
         printf(SOCKET_READING_ERROR, "UDP");
@@ -545,13 +628,22 @@ string UDPclient(char message[], unsigned int message_size) {      // Returns -1
     return buffer;
 }
 
-
+/* TCPclient: abstracts the process of writing to a TCP socket
+   - message: the message to write
+   - message_size: the size of the message
+   - image_fd: a file descriptor to read from in case it is necessary to send a file through the socket
+   (= NULL if there isn't a image to send)
+   - socket_fd: a pointer to an integer created by show_asset to where TCPclient will return the TCP socket's
+   file desciptor (= NULL if the function calling it isn't show_asset)
+   Returns the response read from the TCP socket following the request or "ERR" in case an error happened
+*/
 string TCPclient(const char message[], unsigned int message_size, int *image_fd, int *socket_fd) {
     int fd;
     ssize_t n;
     struct addrinfo hints, *res;
     char buffer[128];
 
+    // Creating the socket
     fd=socket(AF_INET, SOCK_STREAM, 0);
     if (fd == -1)   {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
 
@@ -572,9 +664,10 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd,
     if ((setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0) ||
         (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)) {
         printf(SOCKET_CREATION_ERROR, "TCP");
-        exit(1);
+        return "ERR";
     };
 
+    // Writing to the socket
     n = write(fd, message, strlen(message));
     if (n == -1)    {printf(SOCKET_CREATION_ERROR, "TCP");  return "ERR";}
 
@@ -595,11 +688,12 @@ string TCPclient(const char message[], unsigned int message_size, int *image_fd,
         n = write(fd, &new_line_char, 1);
     }
 
-    // If was called by show_asset(), transfer conntrol to it
+    // If was called by show_asset(), transfer control to it
     if (socket_fd != NULL) {
         *socket_fd = fd;
         return "";
     }
+
     // Await the answer
     n = read(fd, buffer, 128);
     if (n == -1) {printf(SOCKET_READING_ERROR, "TCP");  return "ERR";}
