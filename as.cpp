@@ -31,6 +31,8 @@ bool verbose=false;
 int fd_udp_global=-1, fd_tcp_global=-1;
 int end_as=0;
 
+int n_child_processes=0;
+
 
 
 /*  +----------------------------------+
@@ -41,12 +43,30 @@ int end_as=0;
 
 static void end_AS(int sig) {
     end_as = 1;
+    struct sigaction act;
+    memset(&act, 0, sizeof act);
+    act.sa_handler = SIG_IGN;
+    if (sigaction(SIGCHLD, &act, NULL) == -1) {
+        printf(SIGNAL_HANDLING_ERROR);
+        exit(1);
+    }
+
+    while (n_child_processes > 0) {
+        printf("Waiting for %d processes to finish\n", n_child_processes);
+        wait(NULL);
+        n_child_processes--;
+    }
+
     close(fd_tcp_global);
     close(fd_udp_global);
     unlink_semaphores();
 
     printf(AS_CLOSING_MESSAGE);
     exit(0);
+}
+
+static void child_finished(int sig) {
+    n_child_processes--;
 }
 
 void process_arguments(int argc, char** argv) {         // processes the arguments given by launching the User
@@ -66,7 +86,7 @@ int main(int argc, char** argv) {
 
     /* SET UP SOCKET ENVIRONMENT */
 
-    int fd_tcp, fd_udp, newfd;
+    int fd_tcp, fd_udp, newfd, select_value;
     ssize_t n;
     socklen_t addrlen_tcp, addrlen_udp;
     struct addrinfo hints_tcp, hints_udp, *res_tcp, *res_udp;
@@ -80,7 +100,7 @@ int main(int argc, char** argv) {
     struct sigaction act;
     memset(&act, 0, sizeof act);
     act.sa_handler = SIG_IGN;
-    if (sigaction(SIGCHLD, &act, NULL) == -1) {
+    if (signal(SIGCHLD, child_finished) == SIG_ERR) {
         printf(SIGNAL_HANDLING_ERROR);
         exit(1);
     }
@@ -101,10 +121,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    /* -----TODO-----: kill all child processes smoothly */
-
-    /* ------TODO------: set socket timers */
-
     /* CREATE TCP SOCKET */
    
     memset(&hints_tcp, 0, sizeof hints_tcp );
@@ -122,6 +138,7 @@ int main(int argc, char** argv) {
     
     if (listen(fd_tcp, 5) == -1)     {printf(SOCKET_CREATION_ERROR, "TCP"); exit(1);}
     fd_tcp_global = fd_tcp;
+    freeaddrinfo(res_tcp);
     
     /* CREATE UDP SOCKET */
 
@@ -138,6 +155,7 @@ int main(int argc, char** argv) {
     n=bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen);
     if (n == -1)     {printf(SOCKET_CREATION_ERROR, "UDP"); exit(1);}
     fd_udp_global = fd_udp;
+    freeaddrinfo(res_udp);
 
     /* SET UP THE FDSET */
     FD_ZERO(&fdset);
@@ -148,166 +166,210 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    /* MAIN CYCLE: FILE DESCRIPTOR READING */
     while(!end_as) {
         FD_SET(fd_tcp, &fdset);
         FD_SET(fd_udp, &fdset);
 
-        select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
+        select_value= select(max(fd_tcp, fd_udp)+1, &fdset, NULL, NULL, NULL);
 
-        if (FD_ISSET(fd_tcp, &fdset)) {
-            addrlen_tcp = sizeof(addr_tcp);
-            if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr_tcp, &addrlen_tcp)) == -1) {
-                printf(SOCKET_CREATION_ERROR, "TCP");
-                exit(1);
+        if (select_value != -1) {
+            if (FD_ISSET(fd_tcp, &fdset)) {
+                // TCP socket is ready to be read
+                addrlen_tcp = sizeof(addr_tcp);
+                if ((newfd=accept(fd_tcp, (struct sockaddr*)&addr_tcp, &addrlen_tcp)) == -1) {
+                    printf(SOCKET_CREATION_ERROR, "TCP");
+                    exit(1);
+                }
+
+                // Setting socket timer
+                struct timeval timeout;
+                timeout.tv_sec = 5;
+                timeout.tv_usec = 0;
+
+                if (setsockopt(newfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0) {
+                    printf(SOCKET_CREATION_ERROR, "TCP");
+                    exit(1);
+                };
+                if (verbose) {
+                    int errcode;
+                    char sender[NI_MAXHOST], port[NI_MAXSERV];
+
+                    if((errcode=getnameinfo((struct sockaddr *)&addr_tcp, addrlen_tcp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST))!=0)
+                        fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
+                    else
+                        printf(REQUEST_RECEIVED, "TCP", sender, port);
+
+                }
+                child_pid = fork();
+                if (child_pid == -1) {
+                    fprintf(stderr, CHILD_PROCESS_ERROR, strerror(errno));
+                    const char* response2 = "ERR\n";
+                    if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
+                        printf(SOCKET_WRITING_ERROR, "TCP");
+                        exit(1);
+                    }
+                }
+                else if (child_pid == 0) { 
+                    close(fd_tcp); 
+                    close(fd_udp);
+
+                    /* SIGNAL HANDLING */
+                    struct sigaction act;
+                    memset(&act, 0, sizeof act);
+                    act.sa_handler = SIG_IGN;
+                    if (sigaction(SIGINT, &act, NULL) == -1) {
+                        printf(SIGNAL_HANDLING_ERROR);
+                        exit(1);
+                    }
+                    if (sigaction(SIGTSTP, &act, NULL) == -1) {
+                        printf(SIGNAL_HANDLING_ERROR);
+                        exit(1);
+                    }
+                    if (sigaction(SIGTERM, &act, NULL) == -1) {
+                        printf(SIGNAL_HANDLING_ERROR);
+                        exit(1);
+                    }
+                    
+                    char command_word[COMMAND_WORD_SIZE+1];
+                    int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
+
+                    if (byte_reading(NULL, newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
+
+                    /* REQUEST PROCESSING */
+                    string response;
+
+                    if (!strcmp(command_word, "OPA")) {
+                        if (verbose)    printf(ISSUED_REQUEST, "open");
+                        string status = open_auction(newfd);
+                        response = "ROA " + status + "\n";
+                    }
+
+                    else if (!strcmp(command_word, "CLS")) {
+                        if (verbose)    printf(ISSUED_REQUEST, "close");
+                        string status = close_auction(newfd);
+                        response = "RCL " + status + "\n";
+                    }
+
+                    else if (!strcmp(command_word, "BID")) {
+                        if (verbose)    printf(ISSUED_REQUEST, "bid");
+                        response = "RBD " + bid(newfd) + "\n";
+                    }
+
+                    else if (!strcmp(command_word, "SAS")) {
+                        if (verbose)    printf(ISSUED_REQUEST, "show_asset");
+                        response = "RSA " + show_asset(newfd, &asset_fd);
+                        if (asset_fd < 0)
+                            response += "\n";
+                    }
+
+                    else {
+                        if (verbose)    printf(UNKNOWN_REQUEST, command_word);
+                        response = "ERR\n";
+                    }
+                
+                    
+                    const char* response2 = response.c_str();
+                    if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
+                        printf(SOCKET_WRITING_ERROR, "TCP");
+                        exit(1);
+                    }
+                    if (asset_fd >= 0) {                    // If asset_fd != -1, show_asset() was successful, so we send the asset
+                        long image_size, bytes_read=0;
+                        char image_buffer[IMAGE_BUFFER_SIZE];
+                        sscanf(response2, "%*s %*s %*s %ld", &image_size);
+                        while (bytes_read < image_size) {
+                            memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
+                            n = read(asset_fd, image_buffer, IMAGE_BUFFER_SIZE);
+                            if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR);  exit(1);}
+                            n = write(newfd, image_buffer, n);
+                            if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP");  exit(1);}
+                            bytes_read += n;
+                        }
+                        char new_line_char = '\n';
+                        n = write(newfd, &new_line_char, 1);
+                        close(asset_fd);
+                    }
+                    close(newfd); 
+                    exit(0); 
+                }
+                n_child_processes++;
+                close(newfd);
             }
-            if (verbose) {
-                int errcode;
-                char sender[NI_MAXHOST], port[NI_MAXSERV];
 
-                if((errcode=getnameinfo((struct sockaddr *)&addr_tcp, addrlen_tcp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST))!=0)
-                    fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
-                else
-                    printf(REQUEST_RECEIVED, "TCP", sender, port);
+            if (FD_ISSET(fd_udp, &fdset)) { 
+                // UDP socket is ready to be read
+                addrlen_udp = sizeof(addr_udp);
+                bzero(buffer, sizeof(buffer)); 
+                n=recvfrom(fd_udp, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
+                
+                if (verbose) {
+                    int errcode;
+                    char sender[NI_MAXHOST],port[NI_MAXSERV];
 
-            }
-            child_pid = fork();
-            if (child_pid == -1) 
-                fprintf(stderr, CHILD_PROCESS_ERROR, strerror(errno));
-            else if (child_pid == 0) { 
-                close(fd_tcp); 
-                close(fd_udp);
-                char command_word[COMMAND_WORD_SIZE+1];
-                int asset_fd = -1;      // Used for show_asset(); is -1 unless show_asset() is executed successfully
+                    if((errcode=getnameinfo((struct sockaddr *)&addr_udp, addrlen_udp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST | NI_DGRAM))!=0)
+                        fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
+                    else
+                        printf(REQUEST_RECEIVED, "UDP", sender, port);
 
-                if (byte_reading(NULL, newfd, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
-
+                }
                 /* REQUEST PROCESSING */
                 string response;
+                if (byte_reading(buffer, -1, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
 
-                if (!strcmp(command_word, "OPA")) {
-                    if (verbose)    printf(ISSUED_REQUEST, "open");
-                    string status = open_auction(newfd);
-                    response = "ROA " + status + "\n";
+                if (!strcmp(command_word, "LIN")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "login");
+                    string status = login(buffer);
+                    response = "RLI " + status + "\n";
                 }
 
-                else if (!strcmp(command_word, "CLS")) {
-                    if (verbose)    printf(ISSUED_REQUEST, "close");
-                    string status = close_auction(newfd);
-                    response = "RCL " + status + "\n";
+                else if (!strcmp(command_word, "LOU")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "logout");
+                    response = "RLO " + logout(buffer) + "\n";
+                }
+                
+                else if (!strcmp(command_word, "UNR")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "unregister");
+                    response = "RUR " + unregister(buffer) + "\n";
                 }
 
-                else if (!strcmp(command_word, "BID")) {
-                    if (verbose)    printf(ISSUED_REQUEST, "bid");
-                    response = "RBD " + bid(newfd) + "\n";
+                else if (!strcmp(command_word, "LMA")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "myauctions");
+                    response = "RMA " + myauctions_or_mybids(buffer, 'a') + "\n";
                 }
 
-                else if (!strcmp(command_word, "SAS")) {
-                    if (verbose)    printf(ISSUED_REQUEST, "show_asset");
-                    response = "RSA " + show_asset(newfd, &asset_fd);
-                    if (asset_fd < 0)
-                        response += "\n";
+                else if (!strcmp(command_word, "LMB")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "mybids");
+                    response = "RMB " + myauctions_or_mybids(buffer, 'b') + "\n";
+                }
+
+                else if (!strcmp(command_word, "LST")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "list");
+                    response = "RLS " + list_auctions(buffer) + "\n";
+                }
+                
+                else if (!strcmp(command_word, "SRC")) {
+                    if (verbose)    printf(ISSUED_REQUEST, "show_record");
+                    response = "RRC " + show_record(buffer) + "\n";
                 }
 
                 else {
                     if (verbose)    printf(UNKNOWN_REQUEST, command_word);
                     response = "ERR\n";
                 }
-            
                 
                 const char* response2 = response.c_str();
-                if (write(newfd, (const char*)response2, strlen(response2)) < 0) {
-                    printf(SOCKET_WRITING_ERROR, "TCP");
+
+                n=sendto(fd_udp, response2, strlen(response2), 0, (struct sockaddr*) &addr_udp, addrlen_udp);
+                if (n==-1) {
+                    if (verbose)    printf(SOCKET_WRITING_ERROR, "UDP");
                     exit(1);
                 }
-                if (asset_fd >= 0) {                    // If asset_fd != -1, show_asset() was successful, so we send the asset
-                    long image_size, bytes_read=0;
-                    char image_buffer[IMAGE_BUFFER_SIZE];
-                    sscanf(response2, "%*s %*s %*s %ld", &image_size);
-                    while (bytes_read < image_size) {
-                        memset(image_buffer, 0, IMAGE_BUFFER_SIZE);
-                        n = read(asset_fd, image_buffer, IMAGE_BUFFER_SIZE);
-                        if (n<0)    {printf(IMAGE_FILE_DESCRIPTOR_ERROR);  exit(1);}
-                        n = write(newfd, image_buffer, n);
-                        if (n<0)    {printf(SOCKET_WRITING_ERROR, "TCP");  exit(1);}
-                        bytes_read += n;
-                    }
-                    char new_line_char = '\n';
-                    n = write(newfd, &new_line_char, 1);
-                    close(asset_fd);
-                }
-                close(newfd); 
-                exit(0); 
-            }
-            close(newfd);
+            } 
         }
-        if (FD_ISSET(fd_udp, &fdset)) { 
-            addrlen_udp = sizeof(addr_udp);
-            bzero(buffer, sizeof(buffer)); 
-            n=recvfrom(fd_udp, buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr*)&addr_udp, &addrlen_udp);
-            
-            if (verbose) {
-                int errcode;
-                char sender[NI_MAXHOST],port[NI_MAXSERV];
-
-                if((errcode=getnameinfo((struct sockaddr *)&addr_udp, addrlen_udp, sender, sizeof sender, port, sizeof port, NI_NUMERICHOST | NI_DGRAM))!=0)
-                    fprintf(stderr, "error: getnameinfo: %s\n", gai_strerror(errcode));
-                else
-                    printf(REQUEST_RECEIVED, "UDP", sender, port);
-
-            }
-            /* REQUEST PROCESSING */
-            string response;
-            if (byte_reading(buffer, -1, command_word, COMMAND_WORD_SIZE, false, false) < 0)    exit(1);
-
-            if (!strcmp(command_word, "LIN")) {
-                if (verbose)    printf(ISSUED_REQUEST, "login");
-                string status = login(buffer);
-                response = "RLI " + status + "\n";
-            }
-
-            else if (!strcmp(command_word, "LOU")) {
-                if (verbose)    printf(ISSUED_REQUEST, "logout");
-                response = "RLO " + logout(buffer) + "\n";
-            }
-            
-            else if (!strcmp(command_word, "UNR")) {
-                if (verbose)    printf(ISSUED_REQUEST, "unregister");
-                response = "RUR " + unregister(buffer) + "\n";
-            }
-
-            else if (!strcmp(command_word, "LMA")) {
-                if (verbose)    printf(ISSUED_REQUEST, "myauctions");
-                response = "RMA " + myauctions_or_mybids(buffer, 'a') + "\n";
-            }
-
-            else if (!strcmp(command_word, "LMB")) {
-                if (verbose)    printf(ISSUED_REQUEST, "mybids");
-                response = "RMB " + myauctions_or_mybids(buffer, 'b') + "\n";
-            }
-
-            else if (!strcmp(command_word, "LST")) {
-                if (verbose)    printf(ISSUED_REQUEST, "list");
-                response = "RLS " + list_auctions(buffer) + "\n";
-            }
-            
-            else if (!strcmp(command_word, "SRC")) {
-                if (verbose)    printf(ISSUED_REQUEST, "show_record");
-                response = "RRC " + show_record(buffer) + "\n";
-            }
-
-            else {
-                if (verbose)    printf(UNKNOWN_REQUEST, command_word);
-                response = "ERR\n";
-            }
-            
-            const char* response2 = response.c_str();
-
-            n=sendto(fd_udp, response2, strlen(response2), 0, (struct sockaddr*) &addr_udp, addrlen_udp);
-            if (n==-1) {
-                if (verbose)    printf(SOCKET_WRITING_ERROR, "UDP");
-                exit(1);
-            }
-        } 
+        else {
+            // Ignore SIGCHLD
+        }
     }
 
     close(fd_tcp);
