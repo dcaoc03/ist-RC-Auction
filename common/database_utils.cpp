@@ -29,8 +29,9 @@ using namespace std;
     |                                          |
     +------------------------------------------+  */
 
-// Recursively deletes a directory and all it's contents
+// remove_directory: Recursively deletes a directory and all it's contents
 // (Used in case of errors while creating User or Auction directories)
+// - dir_name: name of the directory to delete
 void remove_directory(string dir_name) {
     DIR* dir = opendir(dir_name.c_str());
     struct dirent* entry;
@@ -56,6 +57,9 @@ void remove_directory(string dir_name) {
     |                                      |
     +--------------------------------------+  */
 
+/* unlink_semaphores: deletes all semaphores created during the execution of the AS
+   (one for the AUCTIONS directory, one for each individual auction and one for each individual user)
+*/
 void unlink_semaphores() {
     DIR* auctions_dir = opendir("./AUCTIONS");
     struct dirent* entry;
@@ -85,12 +89,20 @@ void unlink_semaphores() {
     |                                  |
     +----------------------------------+  */
 
+/* does_user_exist: checks out if a user exists in the database
+   - user_id: the ID of the given user
+   Returns a pointer to the user's directory or NULL if it doesn't exist
+*/
 DIR* does_user_exist(string user_id) {
     string dir_name = "./USERS/" + user_id;
     DIR* dir = opendir(dir_name.c_str());
     return dir;
 }
 
+/* is_user_logged_in: checks out if a user is logged in in the system
+   - user_id: the ID of the given user
+   Returns 0 if user is logged in, -1 if not
+*/
 int is_user_logged_in(string user_ID) {
     DIR* dir = does_user_exist(user_ID);
     if (dir == NULL)
@@ -100,12 +112,21 @@ int is_user_logged_in(string user_ID) {
     return access(login_file_name.c_str(), F_OK);
 }
 
+/* is_user_registered: checks out if a user is registered in the system
+   - user_id: the ID of the given user
+   Returns 0 if user is registered, -1 if not
+*/
 int is_user_registered(string user_ID) {
     string login_file_name = "./USERS/" + user_ID + "/" + user_ID + "_password.txt";
     return access(login_file_name.c_str(), F_OK);
 }
 
-// Returns 1 if accepted, 0 if not, -1 if error
+/* user_password_check: given a user and a password, checks out if the password is the one the
+   user is associated with in the database
+   - user_id: the ID of the given user
+   - password: the given password
+   Returns 1 if the passwords match, 0 if not, -1 if an error occurs
+*/
 int user_password_check(char user_id[], char password[]) {
     string user_id_str = string(user_id);
     string password_file_name = "./USERS/" + user_id_str + "/" + user_id_str + "_password.txt";
@@ -135,6 +156,10 @@ int user_password_check(char user_id[], char password[]) {
         {sem_post(sem); sem_close(sem); return 0;}
 }
 
+/* does_auction_exist: checks out if an auction exists in the database
+   - AID: the ID of the given auction
+   Returns 1 if it exists, 0 if not;
+*/
 int does_auction_exist(string AID) {
     string auction_dir_name = "./AUCTIONS/" + AID;
     DIR* dir = opendir(auction_dir_name.c_str());
@@ -144,6 +169,11 @@ int does_auction_exist(string AID) {
 
 }
 
+/* does_user_host_auction: given a user and a password, checks if the user is the host of tha auction
+   - AID: the ID of the given auction
+   - UID: the ID of the given user
+   Returns 1 if the user hosts the auction, 0 if not
+*/
 int does_user_host_auction(string AID, string UID) {
     string user_auction_file = "./USERS/" + UID + "/HOSTED/" + AID + ".txt";
     if (access(user_auction_file.c_str(), F_OK) == 0)
@@ -152,7 +182,10 @@ int does_user_host_auction(string AID, string UID) {
         return 0;
 }
 
-// Returns 1 if is ongoing, 0 otherwise, -1 if error
+/* is_auction_ongoing: checks out if a given auction is ongoing or not, creating an END file if necessary
+   - AID: the ID of the given auction
+   Returns 1 if is the auction ongoing, 0 otherwise, -1 if an error occured
+*/
 int is_auction_ongoing(string AID) {
     string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
 
@@ -194,6 +227,10 @@ int is_auction_ongoing(string AID) {
 
 /* ----------------- USER MANIPULATION FUNCTIONS ---------------- */
 
+/* create_user_dirs: creates the directories associated with the user, including the HOSTED and BIDDED directories
+   - user_id: the ID of the given user
+   Returns 0 if all are created successfully, -1 if not
+*/
 int create_user_dirs(string user_id) {
     string dir_name = "./USERS/" + user_id;
     string hosted = dir_name + "/HOSTED";
@@ -217,6 +254,14 @@ int create_user_dirs(string user_id) {
     return 0;
 }
 
+/* create_user: creates a user entry in the database, including the directories (if necessary),
+   the login file and the password file
+   - user_id: the ID of the user to log in
+   - password: the user's password
+   - create_directories: indicates if it s necessary to create the user's directories (=true in case
+   the user is registrating)
+   Returns 0 if done successfully, -1 if not
+*/
 int create_user(string user_id, char password[], bool create_directories) {
     if (create_directories) 
         if (create_user_dirs(user_id) == -1) {
@@ -247,7 +292,10 @@ int create_user(string user_id, char password[], bool create_directories) {
     return 0;
 }
 
-// Returns 0 if successful, 1 if unsuccessful, -1 if error
+/* logout_user: logs out a user, deleting the respective login file
+   - user_id: the ID of the user to log out
+   Returns 0 if log out is successful, 1 if user is not logged in, -1 if an error occured
+*/
 int logout_user(string user_id) {    
     string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
     // Initialize the semaphore
@@ -263,6 +311,10 @@ int logout_user(string user_id) {
     }
 }
 
+/* unregister_user: unregisters a user, deleting the respective login and password files
+   - user_id: the ID of the user to unregister
+   Returns 0 if log out is successful, -1 if an error occured
+*/
 int unregister_user(string user_id) {
     string login_file_name = "./USERS/" + user_id + "/" + user_id + "_login.txt";
     string password_file_name = "./USERS/" + user_id + "/" + user_id + "_password.txt";
@@ -281,7 +333,15 @@ int unregister_user(string user_id) {
 
 /* --------------- AUCTION MANIPULATION FUNCTIONS -------------- */
 
-int setup_auctions_dir() {int count = 0;
+/* setup_auctions_dir: called upon when the AS starts up;
+   Returns 0 if is successful -1 if not
+*/
+int setup_auctions_dir() {
+    int count = 0;
+
+    mkdir("AUCTIONS", S_IRWXU);
+    mkdir("USERS", S_IRWXU);
+
     DIR* auctions_dir = opendir("./AUCTIONS");
     struct dirent* entry;
 
@@ -317,6 +377,7 @@ int setup_auctions_dir() {int count = 0;
         }
     closedir(users_dir);
 
+    // Writes the number of auctions in the database to AUCTIONS/NUM_AUCTIONS.txt
     string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "w+");
     if (fprintf(fd_start_file, "%d", count) < 1) {
@@ -325,12 +386,16 @@ int setup_auctions_dir() {int count = 0;
     }
     fclose(fd_start_file);
 
-    // Initialize the semaphore
+    // Initialize the AUCTIONS directory semaphore
     sem_t *sem = sem_open(AUCTIONS_SEMAPHORE_NAME, O_CREAT | O_EXCL, 0666, 1);
     sem_close(sem);
     return 0;
 }
 
+/* get_number_of_auctions: reads the NUM_AUCTIONS.txt file to know how many auctions exist in the
+   database; also increases it by one since the function is only called to know the ID of a new auction
+   Returns the number of auctions in the database or -1 in case an error occurs
+*/
 int get_number_of_auctions() {
     string num_auctions_file_name = "./AUCTIONS/" + string(NUM_AUCTIONS_FILE_NAME);
     FILE* fd_start_file = fopen(num_auctions_file_name.c_str(), "r+");
@@ -363,7 +428,13 @@ int get_number_of_auctions() {
     return n_auctions;
 }
 
-// Mode 's' to get start_fulltime and 'e' to get the predicted_ending_time, returns -1 in case of fscanf error
+/* get_auction_start_and_end_fulltime: reads the START file of an auction and gives either the auction's
+   start time or the auction's predicted ending time (depends on the mode)
+   - AID: the ID of the given auction
+   - mode: determines the return value of the funcion -> can be 's' or 'e'
+   Returns the auction's start time if mode=='s', or the auction's predicted ending time if mode=='e', or
+   -1 in case an error occurs
+*/
 time_t get_auction_start_and_end_fulltime(string AID, char mode) {
     string auction_start_file = "./AUCTIONS/" + AID + "/START_" + AID + ".txt";
     FILE* fd_start_file = fopen(auction_start_file.c_str(), "r");
@@ -383,6 +454,13 @@ time_t get_auction_start_and_end_fulltime(string AID, char mode) {
 
 /* --------------- AUCTION CREATION FUNCTIONS -------------- */
 
+/* copy_image: reads a file from its file descriptor into a temporary location in the database
+   - AID: the ID of the auction associated with the file
+   - file_name: the name of the file
+   - file_size: the size of the file (in bytes)
+   - socket_fd: the socket file descriptor to read from
+   Returns 0 if everything is successful, -1 in case an error occurs
+*/
 int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     char image_buffer[IMAGE_BUFFER_SIZE];
     // Check if the temp directory already exists
@@ -390,8 +468,12 @@ int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     if (stat("./AUCTIONS/temp/", &st) != 0) 
         if (mkdir("./AUCTIONS/temp", S_IRWXU) == -1)
             return -1;
+    
+    // Establish the file's temporary location
     string image_name = "./AUCTIONS/temp/" + AID + "_" + file_name;
     FILE* fd_image = fopen(image_name.c_str(), "w");
+
+    // Read the file from the socket
     long bytes_read = 0, n;
     while (bytes_read < file_size) {
         n = (file_size-bytes_read < IMAGE_BUFFER_SIZE ? file_size-bytes_read : IMAGE_BUFFER_SIZE);
@@ -406,7 +488,12 @@ int copy_image(string AID, string file_name, long file_size, int socket_fd) {
     return 0;
 }
 
-int create_auction_dirs(string AID, string UID) {// Create directory in AUCTIONS
+/* create_auction_dirs: creates the directories associated with an auction, including the BIDS and ASSET directories
+  - AID: the ID of the give auction
+  - UID: the ID of the usr who hosts the auction
+  Returns 0 if everything is successful, -1 if not
+*/
+int create_auction_dirs(string AID, string UID) {
     string auctions_dir = "./AUCTIONS/" + AID;
     string bids_dir = auctions_dir + "/BIDS";
     string asset_dir = auctions_dir + "/ASSET";
@@ -429,6 +516,12 @@ int create_auction_dirs(string AID, string UID) {// Create directory in AUCTIONS
     return 0;
 }
 
+/* move_image: moves the file from its temporary location to the ASSET directory of the file's
+  auction
+  - file_name: the name of the file
+  - AID: the ID of the auction associated with the file
+  Returns 0 if is successful, -1 if not
+*/
 int move_image(string file_name, string AID) {
     string image_initial_name = "./AUCTIONS/temp/" + AID + "_" + file_name;
     string image_final_name = "./AUCTIONS/" + AID + "/ASSET/" + file_name;
@@ -438,6 +531,14 @@ int move_image(string file_name, string AID) {
     return 0;
 }
 
+/* create_auction_start_file: creates a START file for a given auction
+   - AID: the ID of the given auction
+   - UID: the ID of the user who hosts the auction
+   - asset_name: the title of the auction
+   - file_name: the name of the file associated with the auction
+   - start_value: the start value of the auction
+   - timeacive: the time an auction is set to last
+*/
 void create_auction_start_file(string AID, string UID, string asset_name, string file_name, long start_value, long timeactive) {
     string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "w");
@@ -472,6 +573,14 @@ void create_auction_start_file(string AID, string UID, string asset_name, string
     
 }
 
+/* create_auction_start_file: creates an entry in the database for the given auction
+   - AID: the ID of the given auction
+   - UID: the ID of the user who hosts the auction
+   - asset_name: the title of the auction
+   - file_name: the name of the file associated with the auction
+   - start_value: the start value of the auction
+   - timeacive: the time an auction is set to last
+*/
 int create_auction(string AID, string UID, string asset_name, string file_name, long start_value, long timeactive) {
     if (create_auction_dirs(AID,UID) == -1) {
         string auction_dir_name = "AUCTIONS/" + AID;
@@ -487,7 +596,10 @@ int create_auction(string AID, string UID, string asset_name, string file_name, 
     return 0;
 }
 
-// Returns 0 if succsess, -1 in case of error
+/* create_auction_end_file: crates the END file for a give auction
+   - AID: the ID of the given auction
+   Returns 0 if is succsessful, -1 if an error occurs
+*/
 int create_auction_end_file(string AID) {
     string auction_end_file = "./AUCTIONS/" + AID + "/END_" + AID + ".txt";
     FILE* fd_end_file = fopen(auction_end_file.c_str(), "w");
@@ -512,7 +624,12 @@ int create_auction_end_file(string AID) {
 
 /* --------------- BID CREATION FUNCTIONS -------------- */
 
-// Returns 0 if new bid is higher, 0 if not, -1 in case of error
+/* get_highest_bid: given a new bid, tells if the bid is higher than the current biggest bid in that auction;
+   in case it is, it writes the new highest bid in the MAX_BID file of the auction
+   - AID: the auction that's being bidded
+   - new_bid: the value of the new bid
+   Returns 1 if the new bid is higher, 0 if not, -1 in case an error occurs
+*/
 int get_highest_bid(string AID, long new_bid) {
     long highest_bid;
     string max_bid_file_name = "./AUCTIONS/" + AID + "/BIDS/MAX_BID.txt";
@@ -544,8 +661,14 @@ int get_highest_bid(string AID, long new_bid) {
 
 }
 
-// Returns 0 if succsess, -1 in case of error
-int create_bid_files(std::string UID, std::string AID, long value, string value_str) {
+/* create_bid_files: creates all files associated with a new bid
+   - AID: the ID of the bidded auction
+   - UID: the ID of the auction's host user
+   - value: the value of the new bid
+   - value_str: the value of the new bid converted to a string (for easier file naming)
+   Returns 0 if everything is successful ,-1 in case an error occurs
+*/
+int create_bid_files(string UID, string AID, long value, string value_str) {
     // Initialize the user semaphore
     string individual_user_semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;
     sem_t *sem = sem_open(individual_user_semaphore_name.c_str(), O_RDWR);
@@ -589,9 +712,14 @@ int create_bid_files(std::string UID, std::string AID, long value, string value_
     |                                  |
     +----------------------------------+  */
 
-// mode == 'a' -> returns the user's hosted auctions
-// mode == 'b' -> returns the auctions where the user has put a bid
-// mode == 'l' -> returns all auctions
+/* get_hosted_auctions_or_bids: returns a list of auctions according to the given mode
+   - UID: the ID of the given user (if mode==='a' or mode=='b')
+   - mode: changes the return type of the function
+   Returns according to the following modes:
+      - mode == 'a' -> returns the user's hosted auctions
+      - mode == 'b' -> returns the auctions where the user has placed a bid
+      - mode == 'l' -> returns all auctions
+*/
 list <string> get_hosted_auctions_or_bids(string UID, char mode) {
     string desired_dir, semaphore_name;
     sem_t* sem;
@@ -601,7 +729,9 @@ list <string> get_hosted_auctions_or_bids(string UID, char mode) {
     if (mode == 'a')    {desired_dir = "./USERS/" + string(UID) + "/HOSTED"; semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;}
     else if (mode == 'b')    {desired_dir = "./USERS/" + string(UID) + "/BIDDED"; semaphore_name = INDIVIDUAL_USER_SEMAPHORE_NAME + UID;}
     else if (mode == 'l')    {desired_dir = "./AUCTIONS/"; semaphore_name = AUCTIONS_SEMAPHORE_NAME;}
+    else                      return user_list;
     
+    // Initialize the semaphore
     sem = sem_open(semaphore_name.c_str(), O_RDWR);
     if (sem == SEM_FAILED)  return user_list;
     sem_wait(sem);
@@ -618,6 +748,10 @@ list <string> get_hosted_auctions_or_bids(string UID, char mode) {
     return user_list;
 }
 
+/* get_auction_file_name: gives the name of a file associated with a given auction
+   - AID: the ID of the give auction
+   Returns the name of the file
+*/
 string get_auction_file_name(string AID) {
     string file_name;
     if (!does_auction_exist(AID))
@@ -636,6 +770,10 @@ string get_auction_file_name(string AID) {
     return file_name;
 }
 
+/* get_auction_info: gets the information about an auction stored in its START file
+   - AID: the ID of the given auction
+   Returns a string containing all the requested information according to the show_record protocol
+*/
 string get_auction_info(string AID) {
     string start_file_name = "./AUCTIONS/" + AID + "/START_"+ AID +".txt";
     FILE* fd_start_file = fopen(start_file_name.c_str(), "r");
@@ -648,16 +786,27 @@ string get_auction_info(string AID) {
     return string(UID) + " " + asset_name + " " + file_name + " " + start_value + " " + start_date + " " + start_hours + " " + duration;
 }
 
+/* sort_by_most_recent_bid: criterion used for ordering the bids in descending value order
+   - bid1, bid2: vectors containing information regarding two different bids
+   Returns a boolean indicating if the value of bid1 is bigger than the value of bid2
+*/
 bool sort_by_most_recent_bid(vector <string> bid1, vector <string> bid2) {
     return stoi(bid1[4]) > stoi(bid2[4]);
 }
 
+/* get_bids: gets the 50 biggest bids made in an auction
+   - AID: the ID of the given auction
+   Returns a string containg all the request information regarding the bids according to the
+   show_record protocol
+*/
 string get_bids(string AID) {
     string bids_dir_name = "./AUCTIONS/" + AID + "/BIDS";
     DIR* bids_dir = opendir(bids_dir_name.c_str());
     struct dirent* entry;
     list <vector <string>> bids_list;
     string bids = "";
+
+    // Get all bids made in an auction
     while ((entry = readdir(bids_dir)) != NULL) {
         if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && strcmp(entry->d_name, "MAX_BID.txt")) {
             string bid_file_name = "./AUCTIONS/" + AID + "/BIDS/" + string(entry->d_name);
@@ -672,8 +821,12 @@ string get_bids(string AID) {
             fclose(fd_bid_file);
         }
     }
+
+    // Sort the bids by descending order of value
     bids_list.sort(sort_by_most_recent_bid);
     closedir(bids_dir);
+
+    // Select the 50 highest bids
     int count = 0;
     for (auto bid : bids_list) {
         bids += " B " + bid[0] + " " + bid[1] + " " + bid[2] + " " + bid[3] + " " + bid[4];
@@ -684,6 +837,10 @@ string get_bids(string AID) {
     return bids;
 }
 
+/* get_auction_end_info: gets the information about an auction stored in its END file
+   - AID: the ID of the given auction
+   Returns a string containing all the requested information according to the show_record protocol
+*/
 string get_auction_end_info(string AID) {
     if (is_auction_ongoing(AID) == 1)
         return "";
