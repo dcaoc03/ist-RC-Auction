@@ -1,25 +1,11 @@
 # Socket Programming Project - RC Auction
-Project from the Computer Networks course at Instituto Superior Técnico
-TODO:
-- Auction Server (AS)
-  - Responses
+This project was developed for the Computer Networks course at Instituto Superior Técnico in the school year 2023/2024. It consists of two C++ programs, the Auction Server (AS) and the User Application (User), which operate simultaneously on different machines and communicate through the internet (the AS must run on a machine with known IP address and ports). The user can login, open/close auctions and bid on others' auctions. The results of these interactions are made persistent by the creation of files containing relevant information.
 
-DONE:
-- Auction Server (AS)
-  - Launch
-- User Application
-  - Launch
-  - login
-  - logout
-  - unregister
-  - exit
-  - open
-  - close
-  - myauctions/ma
-  - mybids/mb
-  - bid/b
-  - list/l
-  - show_asset/sa
-  - show_record/sr
+Developed by:
 
-Should we add a wait() when issuing a TCP request? That's a question for later :P
+- [dcaoc03](https://github.com/dcaoc03)
+- [RafaelRain18](https://github.com/RafaelRain18)
+
+The project was mostly written in English.
+
+Final Grade: 19.30
